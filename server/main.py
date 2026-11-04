@@ -14920,7 +14920,7 @@ async def do_update():
     try:
         py = _sys.executable
         updater = str(PROJECT_ROOT / "server" / "updater.py")
-        port = os.getenv("JAVIS_PORT", "7777")
+        port = os.getenv("JAVIS_PORT", "6868")
         args = [py, updater, "--old-sha", old_sha, "--old-version", cur,
                 "--target", latest or "", "--port", str(port),
                 "--server-pid", str(os.getpid())]
@@ -22075,7 +22075,7 @@ def _tg_chat_busy(chat) -> bool:
 
 def _javis_port() -> int:
     try:
-        return int(os.getenv("JAVIS_PORT", "7777"))
+        return int(os.getenv("JAVIS_PORT", "6868"))
     except ValueError:
         return 7777
 
@@ -27496,7 +27496,7 @@ if __name__ == "__main__":
     # 127.0.0.1: chỉ máy này truy cập được (an toàn - tránh người khác trong mạng LAN
     # chạy Claude full quyền trên máy + vault của bạn). Đổi qua JAVIS_HOST nếu cần.
     host = os.getenv("JAVIS_HOST", "127.0.0.1")
-    port = int(os.getenv("JAVIS_PORT", "7777"))
+    port = int(os.getenv("JAVIS_PORT", "6868"))
     uvicorn.run("main:app", host=host, port=port, reload=False, ws_per_message_deflate=ws_compat.wanted())
 
 

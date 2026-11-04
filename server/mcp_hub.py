@@ -89,7 +89,7 @@ def hub_token():
 
 def hub_port():
     try:
-        return int(os.getenv("JAVIS_PORT", "7777"))
+        return int(os.getenv("JAVIS_PORT", "6868"))
     except ValueError:
         return 7777
 

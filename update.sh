@@ -71,7 +71,7 @@ else
     echo "==> Asked launchd to restart Javis. Logs: server/javis.log"
   else
     # Mac / Linux không systemd: kill tiến trình đang giữ cổng rồi chạy lại nền (như install.sh)
-    PORT="${JAVIS_PORT:-7777}"
+    PORT="${JAVIS_PORT:-6868}"
     PIDS="$(lsof -ti tcp:"$PORT" 2>/dev/null || true)"
     if [ -n "$PIDS" ]; then
       echo "==> Stopping the old process (PID: $PIDS)..."

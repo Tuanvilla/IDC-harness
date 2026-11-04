@@ -53,7 +53,7 @@ _CHAT_APPS = {
 
 
 def build_channel_block(source: str, meta: dict = None, telegram_running: bool = False,
-                        port: int = 7777, brain_root: str = None, session_in_turn: bool = False) -> str:
+                        port: int = 6868, brain_root: str = None, session_in_turn: bool = False) -> str:
     """Block 'KÊNH HỘI THOẠI HIỆN TẠI' để nối vào cuối system prompt.
 
     source: "telegram" | "dashboard". meta: dict do telegram_bot trích từ update

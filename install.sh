@@ -24,7 +24,7 @@ cd "$APP_DIR"
 # Ten dich vu + cong cua BAN NAY. Truoc day ca hai deu dong cung, nen cai ban thu hai la ghi de
 # /etc/systemd/system/javis.service cua ban thu nhat va hai ban tranh nhau cong 7777.
 SVC="${JAVIS_NAME:-javis}"
-PORT="${JAVIS_PORT:-7777}"
+PORT="${JAVIS_PORT:-6868}"
 case "$SVC" in
   *[!A-Za-z0-9._-]*) err "JAVIS_NAME may only contain letters, digits, '.', '_' and '-' (got: $SVC)"; exit 1;;
 esac

@@ -21,7 +21,7 @@ PLIST="${HOME}/Library/LaunchAgents/${LABEL}.plist"
 # JAVIS_AUTOSTART_OPEN=0 thì chỉ chạy nền, không mở gì.
 OPEN_LABEL="${LABEL}.open"
 OPEN_PLIST="${HOME}/Library/LaunchAgents/${OPEN_LABEL}.plist"
-PORT="${JAVIS_PORT:-7777}"
+PORT="${JAVIS_PORT:-6868}"
 PY="${APP_DIR}/.venv/bin/python"
 ACTION="${1:-install}"
 

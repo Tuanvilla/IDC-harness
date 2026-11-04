@@ -11,7 +11,7 @@ set -u
 
 # Repo root = parent of this script's directory (bin/)
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PORT="${JAVIS_PORT:-7777}"
+PORT="${JAVIS_PORT:-6868}"
 URL="http://127.0.0.1:${PORT}"
 LOG="${APP_DIR}/server/javis.log"
 PIDF="${APP_DIR}/server/javis.pid"

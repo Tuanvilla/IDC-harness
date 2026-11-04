@@ -70,16 +70,16 @@ if not "%JAVIS_NO_AUTOSTART%"=="1" (
   if not errorlevel 1 echo     OK  Tu khoi dong cung Windows: BAT
 )
 
-REM Giai phong port 7777 neu dang bi chiem
-echo [4/4] Giai phong port 7777...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":7777" ^| findstr "LISTENING"') do (
+REM Giai phong port 6868 neu dang bi chiem
+echo [4/4] Giai phong port 6868...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":6868" ^| findstr "LISTENING"') do (
   echo     Dang tat tien trinh cu PID %%a
   taskkill /F /PID %%a >nul 2>&1
 )
 
 echo.
 echo  ==========================================
-echo   IDC Harness dang chay tai: http://localhost:7777
+echo   IDC Harness dang chay tai: http://localhost:6868
 echo   (Chon bo nao o trang Models - khong bat buoc mua API key)
 echo   Nhan Ctrl+C de dung.
 echo  ==========================================

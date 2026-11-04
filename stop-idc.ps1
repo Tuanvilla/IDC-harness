@@ -10,10 +10,10 @@ Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyC
   Write-Host "  - Da tat python PID $($_.ProcessId)"
   $killed = $true
 }
-# Phong ho: ai dang giu port 7777 (truong hop chay bang python khac / cai dat khac)
-Get-NetTCPConnection -LocalPort 7777 -State Listen -ErrorAction SilentlyContinue | ForEach-Object {
+# Phong ho: ai dang giu port 6868 (truong hop chay bang python khac / cai dat khac)
+Get-NetTCPConnection -LocalPort 6868 -State Listen -ErrorAction SilentlyContinue | ForEach-Object {
   Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
-  Write-Host "  - Da tat PID $($_.OwningProcess) (chu port 7777)"
+  Write-Host "  - Da tat PID $($_.OwningProcess) (chu port 6868)"
   $killed = $true
 }
 if (-not $killed) { Write-Host '  (Khong thay server nao dang chay)' }

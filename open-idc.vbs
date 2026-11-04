@@ -17,7 +17,7 @@ Set sh = CreateObject("WScript.Shell")
 root = fso.GetParentFolderName(WScript.ScriptFullName)
 
 port = sh.ExpandEnvironmentStrings("%JAVIS_PORT%")
-If port = "%JAVIS_PORT%" Or port = "" Then port = "7777"
+If port = "%JAVIS_PORT%" Or port = "" Then port = "6868"
 url = "http://127.0.0.1:" & port
 
 If ServerUp() Then

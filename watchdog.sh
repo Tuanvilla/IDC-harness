@@ -27,7 +27,7 @@ if [ -f .env ]; then
   : "${JAVIS_LAUNCHD_LABEL:=$(_env JAVIS_LAUNCHD_LABEL)}"
   : "${JAVIS_STATE_DIR:=$(_env JAVIS_STATE_DIR)}"
 fi
-PORT="${JAVIS_PORT:-7777}"
+PORT="${JAVIS_PORT:-6868}"
 LABEL="${JAVIS_LAUNCHD_LABEL:-com.javis.os}"
 STATE_DIR="${JAVIS_STATE_DIR:-$PWD/server}"
 TARGET="gui/$(id -u)/$LABEL"
