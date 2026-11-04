@@ -22935,6 +22935,23 @@ async def _tg_answer_engine(text, meta, progress, *, chat_id, sess, brain, mcfg,
     sysprompt += channel_context.build_channel_block(
         channel, meta, telegram_running=(channel == "telegram"), port=_javis_port(),
         brain_root=_brain_root(brain))
+    # IDC HARNESS: quy tắc trình bày riêng cho kênh Telegram của chủ (anh chốt 2026-11-05):
+    # màn hình điện thoại hẹp, một khối chữ đặc là không đọc nổi. Dashboard giữ nguyên.
+    if channel == "telegram" and not bot:
+        sysprompt += (
+            "\n\n## TRÌNH BÀY TRÊN TELEGRAM (bắt buộc)\n"
+            "- Mở đầu bằng 1-2 dòng TỔNG QUAN: trả lời thẳng câu hỏi + con số tổng quan trọng nhất.\n"
+            "- Thân bài chia theo MỤC: mỗi mục một tiêu đề in đậm kèm số tổng của mục (ví dụ "
+            "**Pha 1 — Phòng UPS Tầng 1 · 6 UPS · 2.000 kVA**), các mục cách nhau một dòng trống.\n"
+            "- Trong mỗi mục, mỗi ý MỘT dòng gạch đầu dòng ngắn; số liệu chính in đậm; tránh lồng "
+            "nhiều tầng dấu ngoặc trong cùng một câu — chi tiết phụ tách xuống dòng riêng.\n"
+            "- Ghi chú, điều kiện, phần chưa có dữ liệu: dồn xuống CUỐI câu trả lời, tách khỏi "
+            "số liệu chính.\n"
+            "- Câu trả lời ngắn (hỏi đáp đơn giản) thì trả lời gọn, không ép khuôn này.\n"
+            "- THUẬT NGỮ: với hệ thống UPS, gọi mỗi thiết bị là một «UPS» (ví dụ «20 UPS độc lập», "
+            "«4 UPS Liebert NX300 300 kVA») — KHÔNG gọi là «module» khi trình bày cho người dùng, "
+            "dù tài liệu nguồn dùng chữ module.\n"
+        )
     if kind in ("cli", "oauth"):
         _schedule_registry_discovery_shadow(
             runtime_trace, brain, text,
