@@ -4,7 +4,7 @@
 #   powershell -ExecutionPolicy Bypass -File install.ps1
 #
 # Cai het trong mot luot: Python deps (venv) + BON bo nao CLI chay bang goi thue bao
-# (claude, codex, agy, grok) + .env + giai phong port 7777, roi bat server.
+# (claude, codex, agy, grok) + .env + giai phong port 6868, roi bat server.
 #
 # Vi sao co file nay: truoc day nguoi dung Windows phai tu di bon duong khac nhau (setup.bat
 # chi cai claude + codex; agy va grok phai tu mo PowerShell go tung lenh cua nha cung cap),
@@ -224,16 +224,16 @@ if ((-not (Test-Path ".env")) -and (Test-Path "env.example")) {
   Ok ".env da co"
 }
 
-# ---------------------------------------------------------------- [5] port 7777
-Step 5 "Giai phong port 7777"
-$conns = Get-NetTCPConnection -LocalPort 7777 -State Listen -ErrorAction SilentlyContinue
+# ---------------------------------------------------------------- [5] port 6868
+Step 5 "Giai phong port 6868"
+$conns = Get-NetTCPConnection -LocalPort 6868 -State Listen -ErrorAction SilentlyContinue
 if ($conns) {
   foreach ($c in $conns) {
     try { Stop-Process -Id $c.OwningProcess -Force -ErrorAction Stop; Ok "Da tat tien trinh cu PID $($c.OwningProcess)" }
     catch { Warn "Khong tat duoc PID $($c.OwningProcess) - dong tay roi chay lai." }
   }
 } else {
-  Ok "Port 7777 dang trong"
+  Ok "Port 6868 dang trong"
 }
 
 # ---------------------------------------------------------------- tong ket
@@ -290,5 +290,5 @@ if (Test-Path $vbs) {
   Ok "Server dang chay"
 }
 Line ""
-Line "  Mo: http://localhost:7777"
+Line "  Mo: http://localhost:6868"
 Line ""
