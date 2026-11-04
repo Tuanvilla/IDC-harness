@@ -796,9 +796,11 @@ def co_quyen_cho_mode(mode: Optional[str]) -> list[str]:
 
     Chỉ có `--dangerously-skip-permissions` (tự duyệt mọi tool) và `--sandbox` (siết terminal)
     là thấy trong tài liệu. KHÔNG có nấc "chỉ đọc" tương đương `--approval-mode plan` của Gemini
-    CLI, nên `suggest` ở đây được siết bằng SANDBOX cộng với lời dặn trong system prompt, chứ
-    không phải một cái chốt cứng của CLI. Khác biệt này phải nói thật ở tài liệu, đừng để người
-    dùng tưởng mức Chỉ đọc do CLI chặn như bên Gemini.
+    CLI. Từ 2026-11-05 (chủ chốt sau khi ĐO THẬT trên bot Telegram): `suggest` cũng tự duyệt tool
+    như full/auto — chỉ khác là việc "chỉ đọc" do các tầng của IDC Harness giữ (system prompt +
+    MCP Hub readonly + đường ống kênh), KHÔNG phải chốt cứng của CLI. Nói thật điều này ở tài
+    liệu, đừng để người dùng tưởng mức Chỉ đọc do CLI chặn như bên Gemini. Giá trị lạ vẫn về nấc
+    chặt nhất (chỉ sandbox).
     """
     m = str(mode or "").strip().lower()
     co: list[str] = []
@@ -818,8 +820,22 @@ def co_quyen_cho_mode(mode: Optional[str]) -> list[str]:
         if co_co("--dangerously-skip-permissions"):
             co.append("--dangerously-skip-permissions")
         return co
-    # suggest + mọi giá trị lạ: bật sandbox nếu bản CLI có. suggest không tự duyệt tool nên
-    # không dính tổ hợp hỏng ở trên.
+    if m == "suggest":
+        # suggest TRƯỚC 2026-11-05 chỉ bật `--sandbox`, không tự duyệt tool. Trên giấy là "chỉ
+        # đọc", ngoài đời là CHẾT CẢ LƯỢT: agy chạy headless không hiện được hộp hỏi quyền, nên
+        # MỌI tool (kể cả read_file tra tài liệu) bị tự động từ chối và lượt kết thúc bằng
+        # "jetski: no output produced — a tool required the 'command' permission...". Đo thật
+        # 2026-11-05 trên bot Telegram của chủ (mức suggest bị ghim cho kênh này): câu nào cần
+        # tra cứu là bot trả về nguyên văn lỗi đó; chỉ câu nào nội dung đã nằm sẵn trong ngữ
+        # cảnh mới trả lời được. Chủ chốt: suggest cũng tự duyệt tool như auto — và cũng KHÔNG
+        # kèm `--sandbox` vì tổ hợp hai cờ làm tool shell chết câm (xem đo 2026-09-19 ở trên).
+        # Lớp "chỉ đọc" của suggest từ nay do IDC Harness giữ: system prompt cấm ghi, MCP Hub
+        # siết readonly, đường ống kênh không có cửa ghi. Ai đọc tới đây đừng tưởng CLI còn
+        # chặn được gì ở mức này.
+        if co_co("--dangerously-skip-permissions"):
+            co.append("--dangerously-skip-permissions")
+        return co
+    # Giá trị lạ: nấc CHẶT NHẤT — chỉ bật sandbox nếu bản CLI có.
     if co_co("--sandbox"):
         co.append("--sandbox")
     return co

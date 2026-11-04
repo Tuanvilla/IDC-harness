@@ -142,9 +142,11 @@ check("và vẫn lấy được câu trả lời",
 check("bản cũ không có --sandbox thì cũng không truyền", "--sandbox" not in _argv2)
 
 _evs3, _g3, _argv3 = _chay_gia(_DONG, help_text=_HELP_MOI, mode="suggest")
-check("mức suggest: bật --sandbox", "--sandbox" in _argv3, _argv3)
-check("CANARY: mức suggest KHÔNG tự duyệt mọi tool",
-      "--dangerously-skip-permissions" not in _argv3, _argv3)
+check("mức suggest: tự duyệt tool (chốt 2026-11-05: không tự duyệt là headless từ chối mọi "
+      "tool, bot chỉ đọc chết cả lượt)",
+      "--dangerously-skip-permissions" in _argv3, _argv3)
+check("CANARY: mức suggest KHÔNG kèm --sandbox (tổ hợp hai cờ làm tool shell chết câm)",
+      "--sandbox" not in _argv3, _argv3)
 
 _evs4, _g4, _argv4 = _chay_gia(_DONG, help_text=_HELP_MOI, mode="full")
 check("mức full: tự duyệt tool để headless không treo",
@@ -157,7 +159,7 @@ check("mức full: tự duyệt tool để headless không treo",
 _cli_moi, _ = _gia([], help_text=_HELP_MOI)
 _reset_cache()
 antigravity_cli.find_antigravity_cli = lambda: _cli_moi
-check("mode rỗng -> siết như suggest",
+check("mode rỗng -> nấc chặt nhất (chỉ sandbox)",
       antigravity_cli.co_quyen_cho_mode("") == ["--sandbox"])
 check("CANARY: mode gõ sai KHÔNG được thành toàn quyền",
       "--dangerously-skip-permissions" not in antigravity_cli.co_quyen_cho_mode("FULLL"))
@@ -168,8 +170,8 @@ check("mode auto: tự duyệt (headless dừng hỏi là treo)",
 # Mọi việc Kanban/Loop mức auto cần shell/ghi file chết câm vì tổ hợp này.
 check("CANARY: mode auto KHÔNG được kèm --sandbox (tổ hợp hai cờ làm tool shell chết câm)",
       "--sandbox" not in antigravity_cli.co_quyen_cho_mode("auto"))
-check("mode suggest vẫn sandbox, không tự duyệt",
-      antigravity_cli.co_quyen_cho_mode("suggest") == ["--sandbox"])
+check("mode suggest: tự duyệt, không sandbox (chốt 2026-11-05)",
+      antigravity_cli.co_quyen_cho_mode("suggest") == ["--dangerously-skip-permissions"])
 
 # ---- Lời nhắc đường file phải nhắc ĐÚNG câu hỏi mới nhất, không phải đầu gói lịch sử ----
 import compaction  # noqa: E402
