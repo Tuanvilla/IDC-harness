@@ -1,37 +1,45 @@
 # ============================================================================
-# Javis OS - docker compose (PRODUCTION: pull image dựng sẵn từ GHCR)
+# IDC Harness - docker compose (BUILD TỪ SOURCE của chính repo này)
 #
-# CÀI TRÊN HOSTINGER: dùng file RIÊNG cho Hostinger (1 container, deploy là chạy, không kén hạ tầng):
-#   https://raw.githubusercontent.com/blogminhquy/javis-os/main/docker-compose.hostinger.yml
-#   (Docker Manager → Compose → URL. Cách gắn TÊN MIỀN + HTTPS ghi trong chú thích cuối file đó / DEPLOY.md.)
-#   File NÀY cũng chạy trên Hostinger được, nhưng file kia gọn hơn và có sẵn nhãn Traefik.
+#   1) (Khuyên làm) đặt sẵn tài khoản quản trị trong file `.env` cạnh file này:
+#        JAVIS_ADMIN_USER=...   JAVIS_ADMIN_PASSWORD=...
+#   2) docker compose up -d --build
 #
-# CÀI TRÊN VPS BẤT KỲ (DigitalOcean/Vultr... - HTTPS bằng Caddy, xem DEPLOY.md):
-#   1) docker compose run --rm javis claude auth login --claudeai   # ĐĂNG NHẬP CLAUDE 1 LẦN
-#   2) docker compose up -d
+# Vì sao build từ source mà KHÔNG kéo image dựng sẵn: các bản IDC Harness chỉ phát hành
+# qua bộ cài Windows/macOS; không có image Docker chính thức của IDC Harness. Trước đây
+# file này kéo image của Javis OS upstream (ghcr.io/blogminhquy/javis-os) - tức chạy code
+# của dự án gốc chứ không phải bản IDC, lại tự cập nhật :latest ngoài tầm kiểm soát.
+# Nay build thẳng từ Dockerfile của repo này: máy chạy đúng code anh đang đọc.
+#
+# CẬP NHẬT bản Docker:  git pull && docker compose up -d --build
+# (Không còn Watchtower đi kèm - xem ghi chú ở cuối file.)
 #
 # ⚠️ BẢO MẬT: chạy public (0.0.0.0) tự BẬT JAVIS_REQUIRE_LOGIN → mở app ra là màn TẠO TÀI KHOẢN
-#    / ĐĂNG NHẬP, không ai vào điều khiển Claude được khi chưa có mật khẩu.
+#    / ĐĂNG NHẬP, không ai vào điều khiển agent được khi chưa có mật khẩu. Nếu không đặt sẵn
+#    admin trong .env thì phải tạo tài khoản NGAY sau khi deploy: ai mở link trước sẽ tạo
+#    được admin. Vào được rồi nên bật thêm 2FA.
 #
-# Muốn build từ source thay vì pull image:  docker compose -f docker-compose.build.yml up -d --build
-#
-# NHIỀU BẢN JAVIS TRÊN CÙNG MỘT VPS (mỗi bản một tên miền riêng): xem
-#   docker-compose.multi.yml + docker-compose.proxy.yml (và mục "Nhiều bản" trong DEPLOY.md).
-#   Tóm tắt: mỗi bản chạy ở THƯ MỤC RIÊNG với .env riêng đặt JAVIS_NAME + JAVIS_HOST_PORT khác nhau.
+# NHIỀU BẢN TRÊN CÙNG MỘT VPS: mỗi bản một thư mục riêng với .env riêng, đặt JAVIS_NAME
+#   và JAVIS_HOST_PORT khác nhau là được.
 # ============================================================================
 services:
   javis:
-    image: ghcr.io/blogminhquy/javis-os:latest
-    # Tên container LẤY TỪ BIẾN, không đóng cứng: hai bản Javis trên cùng một VPS mà cùng tên
+    build:
+      context: .
+      args:
+        CLAUDE_CLI_VERSION: ${CLAUDE_CLI_VERSION:-latest}
+    image: idc-harness:latest
+    # Tên container LẤY TỪ BIẾN, không đóng cứng: hai bản trên cùng một VPS mà cùng tên
     # container là con thứ hai chết ngay lúc `up` ("name is already in use"), kể cả khi đã chạy ở
     # thư mục khác - Docker đặt tên container theo phạm vi TOÀN MÁY chứ không theo project.
     container_name: ${JAVIS_NAME:-javis}
     restart: unless-stopped
-    pull_policy: always
     environment:
-      # Các mặc định cổng/state/brain đã nằm trong Docker image; compose chỉ giữ
-      # token thật sự cần chia sẻ giữa app và Watchtower.
-      WATCHTOWER_TOKEN: ${WATCHTOWER_TOKEN:-javis-update}   # để nút "Cập nhật" gọi được Watchtower
+      # Chỉ cần nếu anh TỰ thêm Watchtower riêng (bản compose này không kèm theo nữa):
+      # đặt một chuỗi ngẫu nhiên dài trong .env, app và Watchtower phải dùng chung một token.
+      # Để trống thì nút "Cập nhật" trong app sẽ hướng dẫn cập nhật tay - đúng thiết kế.
+      # (Trước đây mặc định sẵn "javis-update" - ai cũng biết, đã bỏ.)
+      WATCHTOWER_TOKEN: ${WATCHTOWER_TOKEN:-}
       # Tài khoản quản trị đặt SẴN lúc deploy. Điền hai dòng này vào file `.env` nằm cạnh
       # compose là xong: server boot lên đã có admin, không còn khoảng trống nào.
       # Bỏ trống thì lần đầu mở app sẽ ra màn tạo tài khoản, và trên server public ai mở link
@@ -40,16 +48,17 @@ services:
       JAVIS_ADMIN_PASSWORD: ${JAVIS_ADMIN_PASSWORD:-}
     ports:
       # Cổng MÁY CHỦ lấy từ biến (trong container vẫn luôn là 7777). Bản thứ hai đặt
-      # JAVIS_HOST_PORT=7778 là hết đụng cổng.
+      # JAVIS_HOST_PORT=6869 là hết đụng cổng. Mặc định 6868 cho thống nhất với bản
+      # cài Windows/macOS.
       #
-      # JAVIS_BIND = địa chỉ nghe trên máy chủ. Mặc định 0.0.0.0 (y như trước: mở ra Internet, vào
+      # JAVIS_BIND = địa chỉ nghe trên máy chủ. Mặc định 0.0.0.0 (mở ra Internet, vào
       # được bằng http://<ip>:<cổng>). Chạy sau proxy chung thì đặt JAVIS_BIND=127.0.0.1 để chỉ
       # proxy vào được, còn cổng này thành lối gỡ rối qua SSH tunnel.
       #
       # Vì sao là BIẾN chứ không phải một dòng ports trong file override: compose NỐI CHỒNG danh
       # sách ports của các file -f chứ không thay thế, nên khai lại ở override là ra hai binding
       # cùng một cổng và Docker báo "port is already allocated".
-      - "${JAVIS_BIND:-0.0.0.0}:${JAVIS_HOST_PORT:-7777}:7777"
+      - "${JAVIS_BIND:-0.0.0.0}:${JAVIS_HOST_PORT:-6868}:7777"
     volumes:
       - javis-data:/data                       # state: settings/mật khẩu/sessions/loop (có secret → KHÔNG git)
       - javis-brains:/brains                   # MỌI second brain (kiến thức của bạn) - bền qua mọi update
@@ -66,7 +75,7 @@ services:
       retries: 3
       start_period: 25s
 
-  # (Tùy chọn, cho VPS KHÔNG phải Hostinger) Cloudflare Tunnel → URL HTTPS, không cần mở port:
+  # (Tùy chọn) Cloudflare Tunnel → URL HTTPS, không cần mở port:
   #   docker compose --profile tunnel up -d  &&  docker compose logs tunnel | grep trycloudflare
   tunnel:
     image: cloudflare/cloudflared:latest
@@ -81,41 +90,15 @@ services:
     # URL cố định: tạo named tunnel ở Cloudflare Zero Trust → TUNNEL_TOKEN env → đổi command thành:
     #   command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
 
-  # Cập nhật 1-CLICK từ UI (nút "Cập nhật ngay"). BẬT SẴN từ 0.55.56.
-  #
-  # Trước đó nó nằm trong `profiles: ["update"]`, tức `docker compose up -d` quen tay KHÔNG bật
-  # nó. Hệ quả đo được qua hai lần chủ repo báo (2026-08-12 rồi 2026-09-08): máy này có nút cập
-  # nhật, máy kia không, không ai đoán ra vì sao - và một cái nút chỉ hiện trên số ít máy thì
-  # coi như không có. Nay mặc định BẬT: cài mới là cập nhật được ngay, khỏi nhớ thêm lệnh nào.
-  #
-  # Đổi lại, Watchtower cần quyền Docker (socket). Host nào không cho là nó khởi động lại liên
-  # tục và Docker Manager báo stack "Partially running" - CONTAINER JAVIS VẪN CHẠY BÌNH THƯỜNG,
-  # chỉ mất cái nút, và trang Cập nhật sẽ nói thẳng là phải cập nhật tay. Không muốn có nó:
-  #   docker compose up -d --scale watchtower=0
-  #
-  # Image là bản fork còn bảo trì, KHÔNG phải `containrrr/watchtower`: bản đó đã archive và mặc
-  # định nói Docker API 1.25, Docker Engine mới từ chối ("client version 1.25 is too old") nên
-  # nó Restarting mãi - lý do thật của cảnh "máy mới không cập nhật được" (2026-10-01). Bản fork
-  # tự thương lượng phiên bản API. Ghim major `:1`, xem giải thích trong docker-compose.hostinger.yml.
-  watchtower:
-    image: ghcr.io/nicholas-fedor/watchtower:1
-    container_name: ${JAVIS_NAME:-javis}-watchtower
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      WATCHTOWER_HTTP_API_ENDPOINTS: update                 # nhận lệnh cập nhật từ nút bấm
-      WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_TOKEN:-javis-update}
-      # TỰ đi tìm bản mới theo chu kỳ, KHÔNG chờ ai bấm nút. Mặc định TẮT có chủ ý: bật lên là
-      # Javis tự khởi động lại bất cứ lúc nào có image mới, cắt ngang việc nền và phiên chat
-      # đang chạy. Muốn hoàn toàn tự động thì đặt trong .env:  JAVIS_AUTO_UPDATE=true
-      # (chu kỳ mặc định 24h, đổi bằng JAVIS_AUTO_UPDATE_INTERVAL tính bằng GIÂY).
-      WATCHTOWER_HTTP_API_PERIODIC_POLLS: ${JAVIS_AUTO_UPDATE:-false}
-      WATCHTOWER_POLL_INTERVAL: ${JAVIS_AUTO_UPDATE_INTERVAL:-86400}
-      WATCHTOWER_CLEANUP: "true"                            # dọn image cũ sau khi update
-    # Theo dõi ĐÚNG container của bản này. Để trống hay ghi cứng "javis" thì trên VPS nhiều bản,
-    # Watchtower của bản này sẽ đi cập nhật (và restart) container của bản khác.
-    command: ${JAVIS_NAME:-javis}
+  # Watchtower đã GỠ khỏi bản compose này (rà soát bảo mật 05/11/2026):
+  #  - Nó phải mount /var/run/docker.sock = gần như quyền root trên máy chủ, chỉ để phục vụ
+  #    nút "Cập nhật" 1-click.
+  #  - Token gọi Watchtower trước đây có mặc định công khai "javis-update".
+  #  - Quan trọng hơn: image giờ build tại chỗ, Watchtower cũng không kéo được bản mới từ
+  #    registry nào cả - cập nhật đúng cách là: git pull && docker compose up -d --build.
+  # Trang Cập nhật trong app tự nhận ra không có Watchtower và hướng dẫn cập nhật tay.
+  # Ai thật sự cần Watchtower thì tự thêm service riêng và đặt WATCHTOWER_TOKEN ngẫu nhiên
+  # dài trong .env (biến đã khai sẵn ở service javis ở trên).
 
 volumes:
   javis-data:
