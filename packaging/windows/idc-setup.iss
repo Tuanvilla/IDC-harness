@@ -28,6 +28,10 @@ AppPublisher=Nguyen Minh Quy
 AppPublisherURL=https://github.com/Tuanvilla/IDC-harness
 AppSupportURL=https://github.com/Tuanvilla/IDC-harness/issues
 DefaultDirName={localappdata}\Programs\IDC Harness
+; {app} is only the tiny stub holding bootstrap.ps1, so its page stays hidden. The folder
+; that matters - where IDC Harness itself is cloned - is asked on a custom wizard page
+; (InitializeWizard below), defaults to %USERPROFILE%\IDCHarness, and is persisted in the
+; registry so the uninstaller can find it again.
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
@@ -74,6 +78,9 @@ en.StopApp=Stop IDC Harness
 en.Bootstrapping=Checking this computer and installing what is missing (Git, Python, Node, AI brains). This takes a few minutes, follow the black window...
 en.BootstrapFailed=Setup did not finish. The black window said what was missing.%n%nFix it, then run IDC-Harness-Setup.exe again: steps already done are skipped.%n%nLog: %1
 en.DataKept=IDC Harness was removed from this computer.%n%nYour brain (notes, memory, settings) is kept in:%n%1%n%nDelete that folder by hand if you want everything gone.
+en.PickDirTitle=Choose the IDC Harness folder
+en.PickDirSub=IDC Harness itself, your brain (notes, memory, settings) and its updates all live in this folder. Pick any folder on any drive; it must be writable without administrator rights.
+en.PickDirLabel=Install IDC Harness into:
 #if FileExists(AddBackslash(SourcePath) + "Vietnamese.isl")
 vi.DesktopIconTask=Đặt biểu tượng IDC Harness ra Desktop
 vi.LaunchNow=Mở IDC Harness ngay
@@ -81,6 +88,9 @@ vi.StopApp=Tắt IDC Harness
 vi.Bootstrapping=Đang kiểm tra máy và cài những gì còn thiếu (Git, Python, Node, các bộ não AI). Mất vài phút, theo dõi ở cửa sổ đen...
 vi.BootstrapFailed=Cài đặt chưa xong. Cửa sổ đen đã ghi rõ máy còn thiếu gì.%n%nSửa xong thì chạy lại IDC-Harness-Setup.exe, các bước đã xong sẽ được bỏ qua.%n%nNhật ký: %1
 vi.DataKept=Đã gỡ IDC Harness khỏi máy.%n%nBộ não của bạn (ghi chú, trí nhớ, cài đặt) vẫn được giữ ở:%n%1%n%nMuốn xoá sạch thì tự xoá thư mục đó.
+vi.PickDirTitle=Chọn thư mục cài IDC Harness
+vi.PickDirSub=IDC Harness, bộ não của bạn (ghi chú, trí nhớ, cài đặt) và các bản cập nhật đều nằm trong thư mục này. Chọn thư mục ở bất kỳ ổ đĩa nào, miễn là ghi được mà không cần quyền quản trị.
+vi.PickDirLabel=Cài IDC Harness vào:
 #endif
 
 [Tasks]
@@ -106,12 +116,42 @@ Type: files; Name: "{app}\install.log"
 [Code]
 var
   BootOk: Boolean;
+  DirPage: TInputDirWizardPage;
 
-{ Where the git clone (code + the user's brain) lives. Must match the default -Dir of
+{ Fallback home of the git clone (code + the user's brain). Must match the default -Dir of
   bootstrap.ps1. }
-function CodeDir(Param: String): String;
+function DefaultCodeDir: String;
 begin
   Result := ExpandConstant('{%USERPROFILE}') + '\IDCHarness';
+end;
+
+{ Where the git clone lives, in order: the folder picked on the wizard page (installer,
+  after InitializeWizard); else the choice a previous install persisted (this is also how
+  the UNINSTALLER finds it - it has no wizard page); else the default above. }
+function CodeDir(Param: String): String;
+begin
+  if DirPage <> nil then
+    Result := DirPage.Values[0]
+  else if not (RegQueryStringValue(HKEY_CURRENT_USER, 'Software\IDC Harness', 'HomeDir', Result)
+               and (Result <> '')) then
+    Result := DefaultCodeDir;
+end;
+
+procedure InitializeWizard;
+var
+  Prev: String;
+begin
+  DirPage := CreateInputDirPage(wpWelcome,
+    CustomMessage('PickDirTitle'), CustomMessage('PickDirSub'),
+    CustomMessage('PickDirLabel'), False, '');
+  DirPage.Add('');
+  { Reinstalling? Preselect the folder the last install used, so the existing brain is
+    found again instead of cloned fresh somewhere else. }
+  if RegQueryStringValue(HKEY_CURRENT_USER, 'Software\IDC Harness', 'HomeDir', Prev)
+     and (Prev <> '') then
+    DirPage.Values[0] := Prev
+  else
+    DirPage.Values[0] := DefaultCodeDir;
 end;
 
 function BootstrapOk: Boolean;
@@ -132,6 +172,9 @@ begin
   if CurStep = ssPostInstall then
   begin
     WizardForm.StatusLabel.Caption := CustomMessage('Bootstrapping');
+    { Persist BEFORE bootstrap runs: if the install is interrupted, the uninstaller and
+      the next setup run still know where the clone (and the brain) lives. }
+    RegWriteStringValue(HKEY_CURRENT_USER, 'Software\IDC Harness', 'HomeDir', CodeDir(''));
     log := ExpandConstant('{app}\install.log');
     args := '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\bootstrap.ps1') +
             '" -Dir "' + CodeDir('') + '" -LogFile "' + log + '"';
