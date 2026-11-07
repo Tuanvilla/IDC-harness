@@ -264,6 +264,7 @@ app.add_middleware(CORSMiddleware,
 # canh đúng một ký tự này.
 # "/hooks/" (0.198.0): webhook triggers, called by outside systems with no cookie. Same trailing
 # slash rule as "/s/"; each hook checks its own secret token in webhook_triggers.accept().
+_SESSION_COOKIE = os.getenv("JAVIS_SESSION_COOKIE", "idc_session")
 _AUTH_PUBLIC_PREFIX = ("/static", "/health", "/s/", "/hooks/")
 # /brand-logo: hiện trên màn đăng nhập (trước session). /tls-check: Caddy gọi (không đăng nhập được).
 _AUTH_PUBLIC_EXACT = ("/", "/favicon.ico", "/auth/status", "/auth/login", "/auth/setup",
@@ -376,7 +377,7 @@ async def _auth_guard(request: Request, call_next):
                   # khi đúng tiền tố, để request thường không phải đi tra danh sách plugin.
                   or ((path.startswith("/ext/") or path.startswith("/.well-known/"))
                       and plugins_host.http_cong_khai(path, request.method)))
-        if not public and not cfgmod.valid_session(request.cookies.get("javis_session", "")):
+        if not public and not cfgmod.valid_session(request.cookies.get(_SESSION_COOKIE, "")):
             # Client ngoài trình duyệt (CLI, script, cron) không có cookie. Nhánh token là
             # đường DUY NHẤT của chúng - xem docs/dev/2026-08-cli-spec.md. Đặt SAU nhánh
             # cookie để dashboard không phải đọc file token mỗi request.
@@ -1375,8 +1376,9 @@ def _session_cookie(resp, token, request=None):
                 secure = True
         except Exception:
             pass
-    resp.set_cookie("javis_session", token, httponly=True, samesite="lax",
-                    secure=secure, max_age=30 * 86400, path="/")
+    max_age = int(os.getenv("JAVIS_SESSION_TTL", 3650 * 86400))
+    resp.set_cookie(_SESSION_COOKIE, token, httponly=True, samesite="lax",
+                    secure=secure, max_age=max_age, path="/")
     return resp
 
 
@@ -1390,7 +1392,7 @@ async def auth_status(request: Request):
     cfg = cfgmod.read_settings()
     enabled = cfgmod.auth_enabled(cfg)
     require = cfgmod.require_login()
-    has_session = cfgmod.valid_session(request.cookies.get("javis_session", ""))
+    has_session = cfgmod.valid_session(request.cookies.get(_SESSION_COOKIE, ""))
     # authed: có session thật; HOẶC bản local không bắt buộc login + chưa đặt mật khẩu (giữ UX cũ).
     authed = has_session or (not enabled and not require)
     return {"needs_setup": not enabled, "auth_required": enabled or require,
@@ -1531,7 +1533,7 @@ async def auth_login(request: Request, username: str = Form(...), password: str 
 # /auth/tokens: cho token đổi được cách đăng nhập thì một token rò ra là kẻ cầm nó tự gắn 2FA
 # của mình vào rồi khoá chính chủ ra ngoài.
 def _doi_phien_that(request: Request):
-    if cfgmod.gate_active() and not cfgmod.valid_session(request.cookies.get("javis_session", "")):
+    if cfgmod.gate_active() and not cfgmod.valid_session(request.cookies.get(_SESSION_COOKIE, "")):
         return JSONResponse({"ok": False, "error": localefmt.chu("Thao tác này phải đăng nhập bằng trình duyệt.", "This action requires signing in from a browser.")},
                             status_code=403)
     return None
@@ -1700,7 +1702,7 @@ async def auth_tokens_create(request: Request, name: str = Form(""), scope: str 
     Thiếu rào này thì một token rò ra là kẻ cầm nó tự cấp thêm token vĩnh viễn cho mình, và
     thu hồi cái đã rò cũng vô nghĩa.
     """
-    if cfgmod.gate_active() and not cfgmod.valid_session(request.cookies.get("javis_session", "")):
+    if cfgmod.gate_active() and not cfgmod.valid_session(request.cookies.get(_SESSION_COOKIE, "")):
         return JSONResponse({"ok": False, "error": localefmt.chu(
             "Tạo token phải đăng nhập bằng trình duyệt "
             "(không dùng token để tạo token).",
@@ -1719,7 +1721,7 @@ async def auth_tokens_revoke(request: Request, id: str = Form(...)):
 
 @app.post("/auth/logout")
 async def auth_logout(request: Request):
-    tok = request.cookies.get("javis_session", "")
+    tok = request.cookies.get(_SESSION_COOKIE, "")
     # 0.187.0: this device stops receiving the account's notifications once it logs out.
     try:
         webpush.huy_theo_phien(_phien_bam(tok))
@@ -1727,7 +1729,7 @@ async def auth_logout(request: Request):
         print(f"[webpush] logout cleanup: {type(e).__name__}: {e}", file=sys.stderr)
     cfgmod.drop_session(tok)
     resp = JSONResponse({"ok": True})
-    resp.delete_cookie("javis_session", path="/")
+    resp.delete_cookie(_SESSION_COOKIE, path="/")
     return resp
 
 
@@ -5372,7 +5374,7 @@ packs_routes.register(app, packs_routes.PacksDeps(
     # local chưa đặt mật khẩu, mà cài một gói là chạy mã lạ trong tiến trình server. Và cố ý
     # KHÔNG nhận API token - token dành cho tự động hoá, còn "tự động cài gói" là thứ không
     # nên có đường tồn tại.
-    co_phien=lambda r: cfgmod.valid_session(r.cookies.get("javis_session", "")),
+    co_phien=lambda r: cfgmod.valid_session(r.cookies.get(_SESSION_COOKIE, "")),
     lam_moi_hub=lambda: (mcp_hub.invalidate_cache(), _write_codex_profile()),
     # Lambda chứ không truyền thẳng `_brain_root`: hàm đó định nghĩa ở phía DƯỚI trong
     # main.py, mà lời gọi register phải nằm đúng chỗ này để giữ thứ tự route. Lambda hoãn
@@ -5385,7 +5387,7 @@ packs_routes.register(app, packs_routes.PacksDeps(
 import routes.tools as tools_routes   # noqa: E402
 
 tools_routes.register(app, tools_routes.ToolsDeps(
-    co_phien=lambda r: cfgmod.valid_session(r.cookies.get("javis_session", "")),
+    co_phien=lambda r: cfgmod.valid_session(r.cookies.get(_SESSION_COOKIE, "")),
     lam_moi_hub=lambda: (mcp_hub.invalidate_cache(), _write_codex_profile()),
 ))
 
@@ -5432,7 +5434,7 @@ async def plugin_http(request: Request, slug: str, rest: str = ""):
     # Đường không công khai: đòi PHIÊN TRÌNH DUYỆT thật. Hàng rào phía trước đã cho token API
     # qua, nhưng một token rò ra không được mở trang cài đặt của plugin.
     if (not r["public"] and cfgmod.gate_active()
-            and not cfgmod.valid_session(request.cookies.get("javis_session", ""))):
+            and not cfgmod.valid_session(request.cookies.get(_SESSION_COOKIE, ""))):
         return JSONResponse({"error": localefmt.chu("Trang này phải đăng nhập bằng trình duyệt.", "This page requires signing in from a browser.")}, status_code=401)
     return await _goi_plugin_http(request, lp, r["handler"], r["no_cookie"])
 
@@ -13017,7 +13019,7 @@ import login_vault  # noqa: E402
 
 login_vault.register(app, login_vault.LoginVaultDeps(
     state_dir=lambda: cfgmod.STATE_DIR,
-    has_session=lambda r: cfgmod.valid_session(r.cookies.get("javis_session", "")),
+    has_session=lambda r: cfgmod.valid_session(r.cookies.get(_SESSION_COOKIE, "")),
     fetch=web_watch.fetch,
 ))
 
@@ -14941,7 +14943,7 @@ async def do_update():
 # start-idc.vbs (đã tự tắt bản cũ + chạy NỀN ẩn). Per-user, KHÔNG cần quyền admin.
 # Registry là nguồn sự thật duy nhất - không lưu trùng vào settings.json.
 # ============================================================
-_AUTOSTART_NAME = "JavisOS"
+_AUTOSTART_NAME = "IDCHarness"
 _AUTOSTART_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 # Task Manager tab "Startup" KHÔNG xoá mục trong Run key khi người dùng bấm Disable. Nó ghi
 # một cờ 12 byte vào khoá riêng dưới đây, rồi Explorer bỏ qua mục đó lúc đăng nhập.
@@ -15735,7 +15737,7 @@ def _phien_con_hieu_luc():
 async def push_subscribe(request: Request, payload: dict = Body(None)):
     p = payload or {}
     ok, err = webpush.dang_ky(p.get("subscription") or p, str(p.get("nhan") or ""),
-                              phien=_phien_bam(request.cookies.get("javis_session", "")))
+                              phien=_phien_bam(request.cookies.get(_SESSION_COOKIE, "")))
     return {"ok": ok, "error": err, "subs": webpush.so_sub()}
 
 
@@ -16357,7 +16359,7 @@ async def voice_live_ws(ws: WebSocket, session_id: str = Query(""), brain: str =
     | {"type":"stop"}. Byte = audio. "ask" (0.236.0) là tin có file đính kèm gõ trong lúc gọi: chạy MỘT lượt bộ não
     chính ngay tại đây rồi model chỉ đọc lại, không mở lượt chat thường song song.
     """
-    if cfgmod.gate_active() and not cfgmod.valid_session(ws.cookies.get("javis_session", "")):
+    if cfgmod.gate_active() and not cfgmod.valid_session(ws.cookies.get(_SESSION_COOKIE, "")):
         await ws.close(code=1008)
         return
     await ws.accept()
@@ -17024,7 +17026,7 @@ def _bao_lan_nhanh_bo_qua(vconf) -> bool:
 # ============================================
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
-    if cfgmod.gate_active() and not cfgmod.valid_session(ws.cookies.get("javis_session", "")):
+    if cfgmod.gate_active() and not cfgmod.valid_session(ws.cookies.get(_SESSION_COOKIE, "")):
         await ws.close(code=1008)
         return
     await ws.accept()
@@ -19523,7 +19525,7 @@ async def terminal_close(session: str = Form(...)):
 @app.websocket("/ws/terminal")
 async def terminal_ws(ws: WebSocket, session: str = Query(""), brain: str = Query("brain"),
                       cols: int = Query(80), rows: int = Query(24)):
-    if cfgmod.gate_active() and not cfgmod.valid_session(ws.cookies.get("javis_session", "")):
+    if cfgmod.gate_active() and not cfgmod.valid_session(ws.cookies.get(_SESSION_COOKIE, "")):
         await ws.close(code=1008)
         return
     await ws.accept()
@@ -28307,7 +28309,7 @@ def _after_plugin_install(brain: str) -> None:
 
 
 plugin_zip_routes.register(app, plugin_zip_routes.PluginZipDeps(
-    co_phien=lambda r: cfgmod.valid_session(r.cookies.get("javis_session", "")),
+    co_phien=lambda r: cfgmod.valid_session(r.cookies.get(_SESSION_COOKIE, "")),
     brain_root=lambda b: _brain_root(b),
     after_install=_after_plugin_install,
 ))
