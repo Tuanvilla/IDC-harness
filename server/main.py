@@ -23028,6 +23028,7 @@ async def _tg_answer_engine(text, meta, progress, *, chat_id, sess, brain, mcfg,
         brain_root=_brain_root(brain))
     # IDC HARNESS: quy tắc trình bày riêng cho kênh Telegram của chủ (anh chốt 2026-11-05):
     # màn hình điện thoại hẹp, một khối chữ đặc là không đọc nổi. Dashboard giữ nguyên.
+    _td = ""   # trích đoạn vault của lượt này; nhánh Antigravity bên dưới dùng lại khi nối mạch
     if channel == "telegram" and not bot:
         sysprompt += (
             "\n\n## TRÌNH BÀY TRÊN TELEGRAM (bắt buộc)\n"
@@ -23042,6 +23043,9 @@ async def _tg_answer_engine(text, meta, progress, *, chat_id, sess, brain, mcfg,
             "- ĐỘ DÀI: mặc định gói câu trả lời trong ~1.500 ký tự — giữ đủ mục và số liệu, "
             "cắt diễn giải và ý lặp. Chỉ viết dài hơn khi người hỏi yêu cầu chi tiết, hoặc khi "
             "dữ kiện thật sự không gói gọn hơn được.\n"
+            "- TRA CỨU: ưu tiên trả lời ngay từ trích đoạn vault đã nạp sẵn (mục TÀI LIỆU "
+            "LIÊN QUAN ở cuối prompt); chỉ gọi công cụ đọc file khi trích đoạn thiếu dữ kiện "
+            "thật sự cần — mỗi vòng công cụ là thêm vài giây người hỏi phải chờ.\n"
             "- THUẬT NGỮ: với hệ thống UPS, gọi mỗi thiết bị là một «UPS» (ví dụ «20 UPS độc lập», "
             "«4 UPS Liebert NX300 300 kVA») — KHÔNG gọi là «module» khi trình bày cho người dùng, "
             "dù tài liệu nguồn dùng chữ module.\n"
@@ -23151,28 +23155,41 @@ async def _tg_answer_engine(text, meta, progress, *, chat_id, sess, brain, mcfg,
         # thoại nối tiếp qua các tin nhắn mà không phải đụng SQLite.
         actual_model = api_model or None
         acli = sess.get("antigravity")
+        _cwd_cu = None   # brain của object engine TRƯỚC lượt này; đổi brain là phải mở mạch mới
         if acli is None:
             acli = antigravity_cli.AntigravityCLI(cwd=_brain_root(brain), model=actual_model,
                                                   tag=f"telegram:{chat_id}",
                                                   instructions=sysprompt)
             sess["antigravity"] = acli
         else:
+            _cwd_cu = acli.cwd
             acli.cwd = _brain_root(brain)
             acli.model = actual_model
-            acli.instructions = sysprompt
         acli.mode = _muc_tg
         _apply_antigravity_hub(acli, _brain_root(brain), mode=_muc_tg)
         if not acli.is_available():
             return ("⚠ Chưa cài Antigravity CLI trên máy chạy IDC Harness. Cài một lần:\n"
                     f"`{antigravity_cli.lenh_cai()}`\n"
                     "Rồi gõ `agy` một lần để đăng nhập Google.")
-        _hoi = text
-        if not getattr(acli, "session_id", None):
-            # Chưa có mạch native (phiên mới, hoặc vừa restart nên object engine dựng lại từ
-            # đầu) thì mồi transcript đã lưu vào ĐÚNG MỘT lượt, y như dashboard vẫn làm. Có mạch
-            # rồi thì engine tự nhớ, gửi lại là tốn token vô ích.
+        if getattr(acli, "session_id", None) and _cwd_cu == str(_brain_root(brain)):
+            # Mạch native còn sống, đúng brain này (tối ưu tốc độ 2026-11-08): instructions
+            # TĨNH — system prompt, khối kênh, khuôn trình bày — đã được gửi ở lượt mở mạch
+            # và engine tự nhớ trong mạch. Gửi lại nguyên xi mỗi lượt buộc model nuốt lại
+            # ~15 nghìn ký tự và làm mạch phình thêm ngần ấy, càng trò chuyện càng chậm.
+            # Lượt này chỉ gửi câu hỏi, kèm trích đoạn vault của CHÍNH câu hỏi này — thành
+            # phần ĐỘNG duy nhất trong instructions.
+            acli.instructions = ""
+            _hoi = (_td + "\n\n" + text) if _td else text
+        else:
+            # Chưa có mạch native (phiên mới, vừa restart nên object engine dựng lại từ đầu,
+            # hoặc vừa đổi brain) thì mồi transcript đã lưu vào ĐÚNG MỘT lượt, y như dashboard
+            # vẫn làm. Trần mồi dùng ngân sách riêng của agy (mặc định 45.000 ký tự) như
+            # dashboard — trần mặc định 300.000 của bộ nén là cỡ cho Codex, gói agy gửi lại
+            # nguyên mỗi lượt mở mạch nên dài quá là chậm và dễ bị đọc cụt.
+            acli.instructions = sysprompt
             _raw_cu, _tom_cu = _tg_lich_su_kho(store, conv_sid, text)
-            _hoi = compaction.bootstrap_prompt(_raw_cu, _hoi, summary=_tom_cu)
+            _hoi = compaction.bootstrap_prompt(_raw_cu, text, summary=_tom_cu,
+                                               max_chars=compaction.AGY_BOOTSTRAP_MAX_CHARS)
         out, loi = "", []
         async for ev in acli.query(_hoi):
             et = ev.get("type")
