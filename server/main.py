@@ -22811,6 +22811,92 @@ class _BoQua(Exception):
 _MO_ANH_BANG_CONG_CU = ("anthropic-cli", "openai-oauth")
 
 
+# Từ dừng tiếng Việt (đã bỏ dấu) khi tách từ khoá câu hỏi cho _tg_trich_doan_vault.
+_TG_TD_STOP = {
+    "la", "gi", "co", "khong", "cua", "cho", "anh", "em", "toi", "minh", "nay",
+    "do", "cac", "mot", "nhung", "duoc", "the", "nao", "bao", "nhieu", "hien",
+    "tai", "dang", "da", "se", "voi", "trong", "tren", "duoi", "khi", "thi",
+    "ma", "va", "hay", "hoi", "ve", "theo", "tu", "den", "ra", "vao", "xem",
+    "liet", "ke", "tat", "ca", "chi", "tiet", "ro", "them", "nua", "sao",
+}
+
+
+def _tg_trich_doan_vault(brain_root, text, *, toi_da_file=3, tran_tong=12000,
+                         tran_file=5000):
+    """Nạp sẵn trích đoạn vault khớp nhất với câu hỏi vào prompt lượt Telegram.
+
+    Lý do (chủ chốt 2026-11-07 - bot trả lời chậm): lượt Telegram chạy engine
+    one-shot, mỗi vòng công cụ đọc file tốn thêm vài giây, mà phần lớn câu hỏi
+    tra cứu chỉ cần 1-3 file trong wiki/ + sources/. Hàm này chấm điểm file
+    bằng số lượt khớp từ khoá (đã bỏ dấu, trần 10 lượt/từ, cộng điểm khi từ
+    khoá trúng TÊN file), lấy tối đa `toi_da_file` file cao điểm nhất và cắt
+    trích đoạn quanh vùng khớp, tổng không quá `tran_tong` ký tự. Dưới ngưỡng
+    điểm thì không nạp gì cả - model vẫn tra cứu bằng công cụ như cũ, nên câu
+    xã giao không bị nhồi tài liệu vô ích. Thuần đọc, không ghi, không mạng;
+    mọi lỗi đều nuốt thành chuỗi rỗng để không bao giờ làm hỏng một lượt trả lời.
+    """
+    try:
+        root = Path(brain_root)
+        q = _fold_accents(text or "")
+        terms = []
+        for w in q.replace("/", " ").replace("-", " ").split():
+            w = w.strip(".,;:!?()[]{}\"'«»")
+            if len(w) >= 3 and w not in _TG_TD_STOP and w not in terms:
+                terms.append(w)
+        if not terms:
+            return ""
+        scored = []
+        for sub in ("wiki", "sources"):
+            base = root / sub
+            if not base.is_dir():
+                continue
+            for p in base.rglob("*.md"):
+                try:
+                    if p.stat().st_size > 1_000_000:
+                        continue
+                    raw = p.read_text(encoding="utf-8", errors="ignore")
+                except OSError:
+                    continue
+                body = _fold_accents(raw)
+                name_hit = any(t in _fold_accents(p.name) for t in terms)
+                hits = 0
+                distinct = 0
+                for t in terms:
+                    c = body.count(t)
+                    if c:
+                        distinct += 1
+                        hits += min(c, 10)
+                score = hits + (15 if name_hit else 0)
+                if score >= 6 and (distinct >= 2 or name_hit):
+                    scored.append((score, p, raw))
+        if not scored:
+            return ""
+        scored.sort(key=lambda x: -x[0])
+        parts = []
+        used = 0
+        for _s, p, raw in scored[:toi_da_file]:
+            if used >= tran_tong:
+                break
+            if len(raw) > tran_file:
+                body_f = _fold_accents(raw)
+                idxs = [body_f.find(t) for t in terms if body_f.find(t) >= 0]
+                start = max(0, (min(idxs) if idxs else 0) - 500)
+                raw = raw[start:start + tran_file]
+            rel = p.relative_to(root).as_posix()
+            parts.append(f"### {rel}\n{raw}")
+            used += len(raw)
+        if not parts:
+            return ""
+        return (
+            "\n\n## TÀI LIỆU LIÊN QUAN — ĐÃ NẠP SẴN CHO LƯỢT NÀY\n"
+            "Các trích đoạn vault dưới đây khớp nhất với câu hỏi. ƯU TIÊN trả lời ngay "
+            "từ chúng, KHÔNG gọi công cụ đọc file. Chỉ tra cứu thêm khi trích đoạn "
+            "chưa đủ dữ kiện để trả lời.\n\n" + "\n\n".join(parts) + "\n"
+        )
+    except Exception:
+        return ""
+
+
 async def _tg_answer_engine(text, meta, progress, *, chat_id, sess, brain, mcfg,
                             prov, kind, api_key, api_model, store=None, conv_sid="",
                             channel="telegram", bot=None, agent=None):
@@ -22948,10 +23034,22 @@ async def _tg_answer_engine(text, meta, progress, *, chat_id, sess, brain, mcfg,
             "- Ghi chú, điều kiện, phần chưa có dữ liệu: dồn xuống CUỐI câu trả lời, tách khỏi "
             "số liệu chính.\n"
             "- Câu trả lời ngắn (hỏi đáp đơn giản) thì trả lời gọn, không ép khuôn này.\n"
+            "- ĐỘ DÀI: mặc định gói câu trả lời trong ~1.500 ký tự — giữ đủ mục và số liệu, "
+            "cắt diễn giải và ý lặp. Chỉ viết dài hơn khi người hỏi yêu cầu chi tiết, hoặc khi "
+            "dữ kiện thật sự không gói gọn hơn được.\n"
             "- THUẬT NGỮ: với hệ thống UPS, gọi mỗi thiết bị là một «UPS» (ví dụ «20 UPS độc lập», "
             "«4 UPS Liebert NX300 300 kVA») — KHÔNG gọi là «module» khi trình bày cho người dùng, "
             "dù tài liệu nguồn dùng chữ module.\n"
         )
+        # Nạp sẵn trích đoạn vault khớp nhất với câu hỏi (xem _tg_trich_doan_vault):
+        # model trả lời trong MỘT vòng, khỏi tốn vài giây cho mỗi vòng công cụ đọc
+        # file. Đọc file chạy trong thread để không chặn event loop.
+        try:
+            _td = await asyncio.to_thread(_tg_trich_doan_vault, _brain_root(brain), text)
+            if _td:
+                sysprompt += _td
+        except Exception:
+            pass
     if kind in ("cli", "oauth"):
         _schedule_registry_discovery_shadow(
             runtime_trace, brain, text,
