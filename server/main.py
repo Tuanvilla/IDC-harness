@@ -23836,6 +23836,8 @@ async def _tg_callback(data, chat=None):
 async def _tg_command(cmd, arg, chat=None, meta=None):
     """Xử lý lệnh Telegram cho 1 chat. Trả {'reply':...} hoặc {'ask':...} hoặc None.
     chat = chat_id của người gõ lệnh → reset/stop/retry/brain chỉ tác động PHIÊN của họ."""
+    if "@" in cmd:
+        cmd = cmd.split("@", 1)[0]
     chat_key = str(chat or "default")
     brain = _tg_brain(chat_key)   # brain riêng của phiên (đổi bằng /brain)
     if cmd == "stop":
@@ -24239,6 +24241,8 @@ async def _tg_owner_answer(text, meta=None, progress=None):
 async def _tg_owner_command(cmd, arg, chat=None, meta=None):
     """Command function of the OWNER's Telegram bot: `_tg_command` plus /agent. Kept out of
     `_tg_command` because the owner's Zalo bot and owner channels share it and have no agent routing."""
+    if "@" in cmd:
+        cmd = cmd.split("@", 1)[0]
     chat_key = str(chat or "default")
     if cmd == "agent":
         if not _tg_owner_chat(chat_key):
