@@ -24519,6 +24519,64 @@ async def zalo_bot_test():
     return {"ok": sent > 0, "sent": sent, "total": len(ids), "error": "; ".join(errs)[:300]}
 
 
+# Nhóm Telegram bot đã báo ID về cho chủ (theo chat_id) - chống spam: sự kiện
+# "thay_nhom" bắn theo MỌI tin từ nhóm, mỗi nhóm chỉ cần báo 1 lần mỗi lượt chạy server.
+_TG_NHOM_DA_BAO = set()
+
+
+async def _tg_owner_event(loai, thong_tin):
+    """Sự kiện NHÓM của bot Telegram (event_fn của TelegramBot, xem `_bao_su_kien`).
+
+    telegram_bot.py nghe được sự kiện nhóm BẤT KỂ chế độ riêng tư của Telegram (bot bị
+    thả vào nhóm nào, nhóm đổi ID khi lên siêu nhóm, bot bị đá ra) - nhưng trước đây
+    main.py không truyền event_fn nên mọi sự kiện bị thả rơi, và chủ phải đi săn ID nhóm
+    bằng getUpdates: cuộc đua với chính bot đang poll nên gần như luôn thua. Nay nối lại:
+    bot tự nhắn ID nhóm về chat riêng của chủ (ID đầu tiên trong whitelist).
+    """
+    try:
+        tg = cfgmod.read_settings().get("telegram", {})
+        ids = tg_parse_ids(tg.get("chat_id"))
+        if not ids:
+            return
+        chu = ids[0]
+        info = thong_tin or {}
+        gid = str(info.get("chat_id", "") or "")
+        ten = str(info.get("chat_title", "") or "").strip() or "(nhóm chưa rõ tên)"
+        if not gid:
+            return
+        if loai == "vao_nhom" or loai == "thay_nhom":
+            # Nhóm đã được phép, hoặc đã báo trong lượt chạy này rồi → im.
+            if gid in ids or gid in _TG_NHOM_DA_BAO:
+                return
+            _TG_NHOM_DA_BAO.add(gid)
+            mo_dau = ("Bot vừa được thêm vào nhóm" if loai == "vao_nhom"
+                      else "Bot vừa nghe thấy một nhóm chưa được cấp phép")
+            await _tg_send_to(chu,
+                f"🤖 {mo_dau}: {ten}\n"
+                f"ID nhóm: {gid}\n"
+                "Muốn cho nhóm này hỏi bot: dán ID này vào Cài đặt → Telegram → ô chat_id "
+                "(sau ID của anh, ngăn cách bằng dấu phẩy) rồi bấm Lưu.")
+        elif loai == "nhom_nang_cap":
+            moi = str(info.get("chat_id_moi", "") or "")
+            if not moi:
+                return
+            _TG_NHOM_DA_BAO.add(moi)
+            if gid in ids:
+                await _tg_send_to(chu,
+                    f"🔁 Nhóm {ten} vừa nâng lên siêu nhóm nên ID đã đổi.\n"
+                    f"ID cũ: {gid}\nID mới: {moi}\n"
+                    "Nhóm đang được cấp phép bằng ID cũ — vào Cài đặt → Telegram thay ID cũ "
+                    "bằng ID mới rồi bấm Lưu, không thì bot sẽ im trong nhóm.")
+        elif loai == "roi_nhom":
+            if gid in ids:
+                await _tg_send_to(chu,
+                    f"🚪 Bot vừa bị xoá khỏi nhóm {ten} (ID: {gid}). "
+                    "ID này vẫn còn trong danh sách được phép — nếu không dùng nữa, "
+                    "vào Cài đặt → Telegram xoá khỏi ô chat_id.")
+    except Exception as e:
+        print(f"[telegram event] {type(e).__name__}: {e}", file=sys.stderr)
+
+
 def restart_telegram():
     """Bật lại bot theo cấu hình settings.telegram (tắt bot cũ nếu có)."""
     global _TG_BOT
@@ -24530,7 +24588,8 @@ def restart_telegram():
     if t.get("enabled") and t.get("token"):
         # `_tg_owner_*`: the shared turn and commands, plus talking to an agent (`@<agent>`, /agent).
         _TG_BOT = TelegramBot(t["token"], t.get("chat_id", ""), _tg_owner_answer, _tg_owner_command, _tg_callback,
-                              download_dir=_tg_inbox_dir, stt_fn=_stt_nghe, precheck_fn=_tg_owner_precheck)
+                              download_dir=_tg_inbox_dir, stt_fn=_stt_nghe, precheck_fn=_tg_owner_precheck,
+                              event_fn=_tg_owner_event)
         _TG_BOT.start()
         return True
     return False
