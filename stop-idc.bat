@@ -2,7 +2,7 @@
 chcp 65001 >nul
 title Dung IDC Harness
 echo Dang tim va tat IDC Harness...
-REM Logic giet nam trong stop-idc.ps1 (giet theo dung python cua venv + chu port 7777).
+REM Logic giet nam trong stop-idc.ps1 (chi giet chu port 6868 + tien trinh chay tu thu muc nay - khong dung Javis OS port 7777).
 REM KHONG dung timeout o day: chay an qua VBS se loi "Input redirection is not supported".
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0stop-idc.ps1"
 REM Don cua so CMD den "IDC Harness" kieu cu con sot (flow moi chay an, khong tao cua so nay).

@@ -2,7 +2,7 @@
 # IDC HARNESS - tu khoi dong cung Windows (ban sao cua bin/idc-autostart.sh ben Mac).
 # Goi qua idc-autostart.bat, dung goi truc tiep tru khi biet minh dang lam gi.
 #
-# Cach lam (0.306.0): ghi DUNG muc ma dashboard bat/tat (HKCU\...\Run, ten "JavisOS",
+# Cach lam (0.306.0): ghi DUNG muc ma dashboard bat/tat (HKCU\...\Run, ten "IDCHarness",
 # khong can quyen admin), tro vao `wscript start-idc.vbs /open`: dang nhap may la server
 # tu chay NEN roi tu mo dashboard trong cua so rieng. install.ps1 goi file nay mac dinh.
 # Truoc 0.306.0 file nay dat shortcut trong thu muc Startup, con dashboard ghi Run key: hai
@@ -16,7 +16,7 @@ $Startup = [Environment]::GetFolderPath("Startup")
 $Lnk = Join-Path $Startup "IDC HARNESS.lnk"          # muc cu (truoc 0.306.0), chi de don
 $RunKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 $Approved = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
-$Name = "JavisOS"                                  # khop _AUTOSTART_NAME trong server/main.py
+$Name = "IDCHarness"                               # khop _AUTOSTART_NAME trong server/main.py
 
 switch ($Action.ToLower()) {
   "install" {
