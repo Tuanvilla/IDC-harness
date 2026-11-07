@@ -24190,9 +24190,22 @@ def _tg_agent_route(chat, text, bot_username="") -> dict:
 
 def _tg_owner_precheck(text, meta):
     """Owner bot precheck: a mention that names no agent, or several, is answered with the list
-    BEFORE a turn starts (no "IDC Harness is working" message, no turn spent on a guess)."""
+    BEFORE a turn starts (no "IDC Harness is working" message, no turn spent on a guess).
+
+    Luật nhóm: trong nhóm bot CHỈ mở miệng khi được gọi — @nhắc tên bot, reply vào tin của
+    bot, hoặc gọi tên một cộng sự. Tin trò chuyện thường giữa các thành viên bị chặn IM LẶNG
+    (trả {} cho gateway). Luật này là của Harness tự giữ: khi privacy của Telegram đang bật
+    thì Telegram lọc sẵn nên luật không bao giờ phải chạy; nhưng bot tắt privacy (BotFather)
+    hoặc được thăng admin thì Telegram chuyển MỌI tin tới, và không có luật này bot sẽ trả
+    lời từng tin một trong nhóm. Chat riêng không bị luật này. Danh tính bot chưa rõ (getMe
+    hỏng nên `bot_username` rỗng, `_co_nhac_ten` không so được) thì KHÔNG chặn: điếc vì chặn
+    nhầm còn tệ hơn ồn, và lỗi danh tính đã được báo riêng ở trang Kênh (loi_danh_tinh)."""
     m = meta or {}
     r = _tg_agent_route(m.get("chat_id"), text, m.get("bot_username") or "")
+    if str(m.get("chat_type") or "") in ("group", "supergroup"):
+        duoc_goi = bool(m.get("mentioned") or m.get("reply_to_bot") or r.get("agent"))
+        if not duoc_goi and m.get("bot_username"):
+            return {}
     return {"reply": r["reply"]} if r["reply"] else None
 
 
