@@ -100,6 +100,7 @@ def parse_chat_ids(raw):
 # ---- Hàng đợi lượt trả lời -----------------------------------------------------------
 MAX_CHO_TIN = 5         # trần số tin gom lại khi bot đang bận (chống spam làm phình bộ nhớ)
 MAX_CHO_KY_TU = 4000
+MAX_HANG_NHOM = 20      # trần hàng câu hỏi TỪNG NGƯỜI trong nhóm (mỗi câu một lượt riêng)
 
 
 def noi_tin(texts):
@@ -135,6 +136,21 @@ class HangLuot:
             d = self.__dict__["_steer_meta_d"] = {}
         return d
 
+    @property
+    def _hang_nhom(self):
+        """chat -> hàng câu hỏi TỪNG NGƯỜI của nhóm: mỗi mục là một lượt riêng đang chờ tới
+        lượt, giữ đúng thứ tự gọi (tạo lười như _steer_meta)."""
+        d = self.__dict__.get("_hang_nhom_d")
+        if d is None:
+            d = self.__dict__["_hang_nhom_d"] = {}
+        return d
+
+    def _la_cau_hoi_nhom(self, meta):
+        """Tin này có phải câu hỏi trong NHÓM của bot chủ không. Bot chuyên trách (chế độ
+        người thật) giữ nguyên cách gom tin cũ; chat riêng của chủ giữ steer."""
+        return (not self.giau_trang_thai
+                and (meta or {}).get("chat_type") in ("group", "supergroup"))
+
     def _busy(self, chat):
         t = self._current.get(chat)
         return bool(t and not t.done())
@@ -155,6 +171,7 @@ class HangLuot:
                 # cần nuốt để khỏi gửi trùng câu báo dừng) nên task kết thúc "bình thường" và
                 # `task.cancelled()` ở `_xong_luot` không bao giờ True.
                 self._cho.pop(chat, None)
+                self._hang_nhom.pop(chat, None)   # cả hàng câu hỏi từng người của nhóm
                 steer_inbox.INBOX.drop(self._steer_sid(chat))   # 0.213.0: and what was sent for the turn mid-way
                 res = await self.command_fn("stop", "", chat, meta) if self.command_fn else None
                 # Chế độ người thật không có câu mặc định: "⏹ Đã dừng." là tiếng của máy. Bot
@@ -196,6 +213,14 @@ class HangLuot:
                 # Người thật đang gõ dở mà nghe thêm một câu thì đọc nốt rồi trả lời một thể,
                 # chứ không quay ra nói "đang xử lý câu trước". Gộp vào lượt kế tiếp.
                 self._xep_hang(chat, text, meta)
+            elif self._la_cau_hoi_nhom(meta):
+                # NHÓM của chủ (luật anh chốt 2026-11-08): mỗi câu hỏi là MỘT lượt riêng,
+                # xếp hàng đúng thứ tự người ta gọi bot, không steer vào lượt người khác,
+                # không gộp nhiều người thành một câu hỏi chung, không câu nào bị nuốt.
+                # Tới đây được là đã qua chốt phép lịch sự (chỉ người gọi bot mới thành lượt),
+                # nên hàng này toàn người đã gọi: ai gọi trước trả lời trước.
+                self._xep_hang_tung_cau(chat, text, meta)
+                await self._bao_da_xep(client, chat, meta)
             else:
                 await self._steer(client, chat, text, meta)
             return
@@ -215,6 +240,23 @@ class HangLuot:
         if sum(len(x) for x in o["texts"]) + len(text or "") > MAX_CHO_KY_TU:
             return
         o["texts"].append(str(text or ""))
+
+    def _xep_hang_tung_cau(self, chat, text, meta=None):
+        """Xếp MỘT câu hỏi của nhóm thành một mục riêng trong hàng chờ, kèm meta của CHÍNH
+        người hỏi (tên, username, id tin) để khi tới lượt, câu trả lời reply đúng tin đó và
+        gọi đúng tên người đó. Trần MAX_HANG_NHOM chỉ để chống phá (một người hỏi dồn dập
+        lúc bot đang bận); vượt trần thì câu MỚI NHẤT phải chờ đợt sau; các câu đã xếp
+        không bao giờ bị đẩy ra."""
+        hang = self._hang_nhom.setdefault(chat, [])
+        if len(hang) >= MAX_HANG_NHOM:
+            return
+        hang.append({"text": str(text or ""), "meta": meta})
+
+    async def _bao_da_xep(self, client, chat, meta):
+        """Báo cho người hỏi biết câu của họ ĐÃ vào hàng (mặc định: im lặng). Kênh có bề mặt
+        nhẹ thì ghi đè: Telegram thả một reaction vào chính tin hỏi, không thêm tin rác vào
+        nhóm mà người hỏi vẫn thấy bot đã nhận."""
+        return None
 
     # ---- Send more while IDC Harness is working (0.213.0, the chat-channel side of 0.206.0) ----
     def _steer_sid(self, chat):
@@ -265,6 +307,18 @@ class HangLuot:
             self._current.pop(chat, None)
         cho = self._cho.pop(chat, None)
         # Bị /stop cắt ngang thì bỏ luôn hàng chờ: người ta bảo dừng chứ không bảo trả lời tiếp.
-        if not cho or not cho.get("texts") or task.cancelled() or self._stop:
+        if task.cancelled() or self._stop:
+            self._hang_nhom.pop(chat, None)
+            return
+        # Hàng câu hỏi từng người của nhóm chạy TRƯỚC phần gom chung: mỗi câu một lượt
+        # riêng theo đúng thứ tự gọi. Hết hàng này mới tới lượt gom (nếu có).
+        hang = self._hang_nhom.get(chat)
+        if hang:
+            muc = hang.pop(0)
+            if not hang:
+                self._hang_nhom.pop(chat, None)
+            self._chay_luot(client, chat, muc["text"], muc.get("meta"))
+            return
+        if not cho or not cho.get("texts"):
             return
         self._chay_luot(client, chat, "\n".join(cho["texts"]), cho.get("meta"))

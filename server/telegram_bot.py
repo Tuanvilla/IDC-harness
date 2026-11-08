@@ -294,7 +294,7 @@ class TelegramBot(HangLuot):
         else:
             self.loi_menu_lenh = ""
 
-    async def _send(self, client, chat, text, reply_markup=None):
+    async def _send(self, client, chat, text, reply_markup=None, reply_to=None):
         # "(không có nội dung)" là một dòng gỡ lỗi. Ở chế độ người thật thì thà không nói gì
         # còn hơn nói ra một câu chỉ có nghĩa với người viết code.
         if not str(text or "").strip() and self.giau_trang_thai:
@@ -306,6 +306,13 @@ class TelegramBot(HangLuot):
             base = {"chat_id": chat, "text": chunk}
             if reply_markup is not None and idx == len(chunks) - 1:
                 base["reply_markup"] = reply_markup   # nút chỉ gắn vào tin cuối
+            if reply_to is not None and idx == 0:
+                # Reply vào ĐÚNG tin hỏi (chỉ chunk đầu): trong nhóm, người hỏi thấy ngay
+                # câu trả lời này là của câu hỏi nào, và Telegram báo chuông cho họ.
+                try:
+                    base["reply_parameters"] = {"message_id": int(reply_to)}
+                except (TypeError, ValueError):
+                    pass
             # MDV2 trước, hỏng escape (400 can't parse entities) → gửi lại plain
             for use_md in (True, False):
                 payload = dict(base)
@@ -430,6 +437,23 @@ class TelegramBot(HangLuot):
             await asyncio.sleep(TYPING_MOI_GIAY)
 
     # ---- Tin TRẠNG THÁI: gửi IM LẶNG → cập nhật theo tiến trình → ở lại làm dòng vết ----
+    async def _bao_da_xep(self, client, chat, meta):
+        """Câu hỏi trong nhóm đã vào hàng chờ: thả reaction 👀 vào CHÍNH tin hỏi.
+
+        Người hỏi thấy ngay bot đã nhận câu của mình (không bị sót) mà nhóm không phải
+        nhận thêm một tin "đã nhận" rác cho mỗi người xếp hàng. Lỗi (tin quá cũ, API
+        từ chối…) nuốt im lặng: reaction chỉ là tín hiệu phụ, hỏng không được làm
+        hỏng lượt trả lời."""
+        mid = (meta or {}).get("message_id")
+        if not mid:
+            return
+        try:
+            await client.post(self._url("setMessageReaction"), json={
+                "chat_id": chat, "message_id": int(mid),
+                "reaction": [{"type": "emoji", "emoji": "👀"}]})
+        except Exception:
+            pass
+
     async def _send_status(self, client, chat, text):
         """Gửi 1 tin trạng thái (plain, không markdown) → trả message_id để sửa sau.
 
@@ -812,7 +836,21 @@ class TelegramBot(HangLuot):
             # Nếu câu trả lời chỉ là ![](local-path) và file đã được tách để gửi riêng, không gửi
             # thêm tin "(không có nội dung)" trước ảnh.
             if str(reply or "").strip() or not files:
-                await self._send(client, chat, reply)
+                # NHÓM (luật anh chốt 2026-11-08): câu trả lời phải gọi ĐÚNG TÊN người hỏi và
+                # reply vào đúng tin hỏi của họ. @username là mention thật (Telegram báo
+                # chuông cho người đó kể cả khi họ tắt thông báo nhóm); không có username
+                # thì dùng tên hiển thị. Chat riêng không cần, chỉ có hai người trong phòng.
+                _goi_ten, _tra_loi_tin = "", None
+                if (not self.giau_trang_thai and (meta or {}).get("chat_type")
+                        in ("group", "supergroup")):
+                    _tra_loi_tin = (meta or {}).get("message_id")
+                    if (meta or {}).get("username"):
+                        _goi_ten = "@" + str(meta["username"])
+                    elif (meta or {}).get("user_name"):
+                        _goi_ten = str(meta["user_name"])
+                if _goi_ten and str(reply or "").strip():
+                    reply = f"{_goi_ten}\n{reply}"
+                await self._send(client, chat, reply, reply_to=_tra_loi_tin)
             # Gửi file SAU câu trả lời để thứ tự đọc tự nhiên (text trước, đính kèm sau)
             for f in files:
                 fpath, fcap = (f.get("path"), f.get("caption", "")) if isinstance(f, dict) else (f, "")
