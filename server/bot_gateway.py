@@ -160,6 +160,8 @@ class HangLuot:
         if text.startswith("/"):
             head = text.split(maxsplit=1)
             cmd = head[0][1:].lower()
+            if "@" in cmd:
+                cmd = cmd.split("@", 1)[0]
             arg = head[1].strip() if len(head) > 1 else ""
             # /stop xử lý NGAY - CHỈ dừng lượt của CHÍNH chat này (không đụng phiên người khác)
             if cmd == "stop":
