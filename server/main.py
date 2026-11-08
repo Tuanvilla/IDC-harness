@@ -22231,6 +22231,42 @@ def _tg_conv_sid(store, sess, brain, engine_label, model, channel="telegram"):
 _TG_MOI_LAI_MAX = 20
 
 
+def _tg_nhan_nguoi_hoi(meta):
+    """Nhãn danh tính NGƯỜI HỎI của lượt này trong nhóm Telegram, để engine nhận đúng người.
+
+    meta của telegram_bot mang đúng người gửi (user_id/user_name/username) nhưng trước giờ
+    chỉ dùng cho phân quyền ở hub (turn_context), không gì đưa vào prompt - engine không
+    biết ai đang hỏi. Phiên nhóm lại là MỘT phiên chung mà ngữ cảnh/lịch sử phần lớn là
+    lượt của CHỦ, nên engine mặc định mọi người hỏi trong nhóm đều là chủ: bot đã gọi một
+    thành viên là "anh Tuấn" dù tầng cơ khí reply/tag đúng người đó (anh báo 2026-11-08).
+    Chủ xác định bằng id chat riêng đầu tiên trong whitelist Telegram (cùng cách
+    `_tg_owner_event` tìm chủ). Thiếu danh tính thì trả chuỗi rỗng.
+    """
+    m = meta or {}
+    uid = str(m.get("user_id") or "")
+    ten = str(m.get("user_name") or "").strip()
+    un = str(m.get("username") or "").strip()
+    if not (uid or ten or un):
+        return ""
+    la_chu = False
+    try:
+        ids = tg_parse_ids(cfgmod.read_settings().get("telegram", {}).get("chat_id"))
+        la_chu = bool(ids) and uid == str(ids[0])
+    except Exception:
+        la_chu = False
+    danh = ten or un or uid
+    if un and un not in danh:
+        danh += f" (@{un})"
+    if la_chu:
+        phan = "Người hỏi lượt này là CHỦ bot."
+    else:
+        phan = ("Người hỏi lượt này là THÀNH VIÊN NHÓM, KHÔNG phải chủ bot. Chỉ nhận diện "
+                "và xưng hô đúng với người này; đừng gọi họ bằng tên hay danh tính của chủ "
+                "bot hay của bất kỳ ai khác.")
+    return ("## NGƯỜI HỎI LƯỢT NÀY (nhóm Telegram)\n"
+            f"- {danh}\n- {phan}")
+
+
 def _tg_lich_su_kho(store, conv_sid, text):
     """Transcript đã lưu của phiên này, để MỒI LẠI ngữ cảnh sau restart.
 
@@ -23029,6 +23065,7 @@ async def _tg_answer_engine(text, meta, progress, *, chat_id, sess, brain, mcfg,
     # IDC HARNESS: quy tắc trình bày riêng cho kênh Telegram của chủ (anh chốt 2026-11-05):
     # màn hình điện thoại hẹp, một khối chữ đặc là không đọc nổi. Dashboard giữ nguyên.
     _td = ""   # trích đoạn vault của lượt này; nhánh Antigravity bên dưới dùng lại khi nối mạch
+    _nhan_nguoi_hoi = ""   # nhãn danh tính người hỏi (chỉ nhóm); nhánh Antigravity nối mạch dùng lại
     if channel == "telegram" and not bot:
         sysprompt += (
             "\n\n## TRÌNH BÀY TRÊN TELEGRAM (bắt buộc)\n"
@@ -23059,6 +23096,13 @@ async def _tg_answer_engine(text, meta, progress, *, chat_id, sess, brain, mcfg,
                 sysprompt += _td
         except Exception:
             pass
+    # Nhận diện người hỏi trong NHÓM: sysprompt mang danh tính NGƯỜI CỦA LƯỢT NÀY (xem
+    # _tg_nhan_nguoi_hoi). Chat riêng không gắn - trong phòng chỉ có chủ.
+    if (channel == "telegram" and not bot
+            and (meta or {}).get("chat_type") in ("group", "supergroup")):
+        _nhan_nguoi_hoi = _tg_nhan_nguoi_hoi(meta)
+        if _nhan_nguoi_hoi:
+            sysprompt += "\n\n" + _nhan_nguoi_hoi
     if kind in ("cli", "oauth"):
         _schedule_registry_discovery_shadow(
             runtime_trace, brain, text,
@@ -23179,7 +23223,10 @@ async def _tg_answer_engine(text, meta, progress, *, chat_id, sess, brain, mcfg,
             # Lượt này chỉ gửi câu hỏi, kèm trích đoạn vault của CHÍNH câu hỏi này — thành
             # phần ĐỘNG duy nhất trong instructions.
             acli.instructions = ""
-            _hoi = (_td + "\n\n" + text) if _td else text
+            # Nhãn danh tính là dữ kiện CỦA LƯỢT NÀY (đổi theo người hỏi) nên phải đi kèm
+            # câu hỏi, không thể trông vào instructions tĩnh đã gửi ở lượt mở mạch.
+            _hoi = ((_nhan_nguoi_hoi + "\n\n") if _nhan_nguoi_hoi else "") \
+                + ((_td + "\n\n") if _td else "") + text
         else:
             # Chưa có mạch native (phiên mới, vừa restart nên object engine dựng lại từ đầu,
             # hoặc vừa đổi brain) thì mồi transcript đã lưu vào ĐÚNG MỘT lượt, y như dashboard
