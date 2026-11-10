@@ -4877,6 +4877,76 @@ async def _tu_cap_nhat_claude():
     asyncio.create_task(_vong())
 
 
+async def _soan_thong_bao_ban_moi(cur: str, latest: str) -> str:
+    """Nội dung tin báo bản mới: tên bản + vài điểm chính lấy từ CHANGELOG trên GitHub."""
+    dong = [f"🆕 IDC Harness có bản mới v{latest} (đang chạy v{cur})."]
+    try:
+        rels, _ = await _cl_remote_releases()
+        rel = next((r for r in (rels or []) if str(r.get("version")) == str(latest)), None)
+        if rel:
+            items = []
+            for sec in rel.get("sections") or []:
+                for it in sec.get("items") or []:
+                    plain = _release_plain(it)
+                    if plain:
+                        items.append(plain)
+            for it in items[:3]:
+                dong.append(f"• {it}")
+    except Exception:
+        pass
+    dong.append("Mở dashboard, mục Cập nhật để xem chi tiết và lên bản mới.")
+    return "\n".join(dong)
+
+
+@app.on_event("startup")
+async def _tu_bao_ban_moi():
+    """Vòng nền báo BẢN MỚI cho chủ: 30 phút dò một lần, mỗi phiên bản chỉ báo MỘT lần.
+
+    Trước 1.2.0 việc dò bản mới chỉ chạy khi chủ mở dashboard (GET /version) hoặc bấm
+    Cập nhật - bản mới ra mà chủ không mở trang thì không ai hay. Vòng này khép khoảng
+    đó bằng chính đường báo cáo của hệ (_notify_owner kind="system": vào hòm thư và
+    Telegram của chủ), và ghi nhớ bản đã báo vào file trạng thái để khởi động lại
+    không báo trùng; đã báo mà chủ chưa cập nhật thì cũng không nhắc lại."""
+    def _da_bao():
+        try:
+            d = json.loads((cfgmod.STATE_DIR / "update-notify.json").read_text(encoding="utf-8"))
+            return str(d.get("announced") or "")
+        except Exception:
+            return ""
+
+    def _ghi_da_bao(ver):
+        try:
+            (cfgmod.STATE_DIR / "update-notify.json").write_text(
+                json.dumps({"announced": ver, "ts": time.time()}, ensure_ascii=False),
+                encoding="utf-8")
+        except Exception:
+            pass
+
+    async def _vong():
+        await asyncio.sleep(180)
+        while True:
+            try:
+                cur = _read_version()
+                latest, err = await _latest_remote_version(cur)
+                if latest and not err and _ver_newer(latest, cur) and _da_bao() != latest:
+                    text = await _soan_thong_bao_ban_moi(cur, latest)
+                    ok, nerr = await _notify_owner(
+                        "", text, kind="system", label="Cập nhật IDC Harness",
+                        source="update_check", dedup=f"update-available:{latest}",
+                        ngan=f"🆕 IDC Harness có bản mới v{latest} (đang chạy v{cur}). "
+                             "Mở dashboard, mục Cập nhật để lên bản mới.")
+                    if ok:
+                        _ghi_da_bao(latest)
+                    else:
+                        print(f"[update notify] báo bản {latest} chưa tới được chủ: {nerr}",
+                              file=sys.stderr)
+            except Exception as e:
+                print(f"[update notify] vòng dò bản mới lỗi: {type(e).__name__}: {e}",
+                      file=sys.stderr)
+            await asyncio.sleep(1800)
+    asyncio.create_task(_vong())
+
+
 @app.get("/antigravity/status")
 def antigravity_status():
     """Trạng thái Antigravity CLI cho trang Models."""

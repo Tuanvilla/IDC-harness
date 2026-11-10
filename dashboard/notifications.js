@@ -704,6 +704,10 @@
     if (!trigger) return;
     loadRead();
     loadAn();
+    // Tab đang mở thì tự làm mới hòm thư + tin tức mỗi 5 phút (load() tự ghìm nhịp này):
+    // trước đây feed chỉ tải lúc mở trang/mở panel, nên bản mới phát hành trong lúc tab
+    // treo sẵn không bao giờ lên huy hiệu chuông cho tới khi tải lại trang (2026-11-11).
+    setInterval(function () { if (!document.hidden) load(); }, 300000);
     taiDaDoc().then(render);
     try { state.tab = localStorage.getItem(TAB_KEY) === "news" ? "news" : "mine"; } catch (e) {}
     trigger.addEventListener("click", function () {

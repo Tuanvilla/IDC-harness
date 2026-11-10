@@ -1,5 +1,14 @@
 # Nhật ký thay đổi — IDC Harness
 
+## 1.2.0 — 2026-11-11
+
+### Báo bản mới chủ động
+- IDC Harness giờ TỰ kiểm tra bản mới mỗi 30 phút. Khi có bản mới, anh nhận được một tin trong hòm thư trên dashboard và một tin nhắn Telegram từ bot, kèm vài điểm chính của bản đó. Mỗi phiên bản chỉ báo đúng một lần, không nhắc lại làm phiền.
+- Chuông thông báo trên dashboard tự làm mới khi tab đang mở: có tin mới là huy hiệu chuông lên số ngay, không cần tải lại trang.
+
+### Bạn cần làm sau khi cập nhật
+- Không cần làm gì thêm. Muốn tắt loại tin này, chỉnh trong chính sách thông báo của hệ như các tin hệ thống khác.
+
 ## 1.1.1 — 2026-11-11
 
 ### Sửa lỗi huỷ lịch trong chat và dọn tên gọi hiển thị
