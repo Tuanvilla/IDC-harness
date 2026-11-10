@@ -138,7 +138,7 @@ def _tich(args, ctx) -> str:
         return "ERROR: " + str(r.get("error") or "không tích được")
     if t.get("habit") and t.get("repeat"):
         st = my_tasks_mod.habit_state(r["task"], today)
-        return (f"OK: đã tích \"{t['title']}\" ngày {date} (Javis tích theo lời người dùng, họ bỏ tích được trên trang Nhiệm vụ). "
+        return (f"OK: đã tích \"{t['title']}\" ngày {date} (IDC Harness tích theo lời người dùng, họ bỏ tích được trên trang Nhiệm vụ). "
                 f"Chuỗi giữ lửa: {st['cur']} ngày.")
     return f"OK: đã đánh dấu xong \"{t['title']}\"."
 
@@ -149,10 +149,10 @@ def register(ctx):
         "Việc của CHÍNH người dùng (tab Việc của tôi trên trang Nhiệm vụ) và thói quen của họ. "
         "op=add: người dùng nhờ ghi một việc họ tự làm (title; date YYYY-MM-DD, time HH:MM nếu có; "
         "repeat day|week|month|year, every, days 'T3,T5,T7' khi lặp theo tuần; habit=true nếu họ muốn giữ lửa thói quen). "
-        "Việc Javis làm thì dùng javis_task hoặc javis_schedule, KHÔNG dùng tool này. "
+        "Việc IDC Harness làm thì dùng javis_task hoặc javis_schedule, KHÔNG dùng tool này. "
         "op=list: xem việc và thói quen hôm nay. "
         "op=check: CHỈ khi người dùng NÓI RÕ là đã làm xong (vd 'đọc sách xong rồi', 'hôm nay tập rồi'): "
-        "truyền name (hoặc id), tool tích xong và ghi là Javis tích. Câu mơ hồ ('chắc tối đọc', 'định tập') thì KHÔNG tích. "
+        "truyền name (hoặc id), tool tích xong và ghi là IDC Harness tích. Câu mơ hồ ('chắc tối đọc', 'định tập') thì KHÔNG tích. "
         "Nhiều việc khớp thì tool trả danh sách: hỏi lại người dùng, đừng đoán.",
         _chay,
         schema={

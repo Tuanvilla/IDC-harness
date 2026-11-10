@@ -1,7 +1,7 @@
 """Bundled plugin: memory and lessons from chat (0.190.0).
 
 The owner (16/10/2026) wanted the memory list and the lesson lists out of the settings column: people never open
-them, they would rather say "quên chuyện đó đi" or "đừng làm vậy nữa" and let Javis do it. This tool is that door, for
+them, they would rather say "quên chuyện đó đi" or "đừng làm vậy nữa" and let IDC Harness do it. This tool is that door, for
 every engine. The work is in `server/memory_chat.py`, which keeps the rules of `memory_control` and `agent_lessons`.
 
 Owner only: `mcp_hub.OWNER_ONLY_TOOLS` lists it, so a customer-facing bot never sees it.
@@ -17,11 +17,11 @@ def register(ctx):
     ctx.register_tool(
         "javis_memory",
         "Trí nhớ của brain và bài học của trợ lý, làm theo lời NGƯỜI DÙNG trong chat (họ không có màn hình nào "
-        "khác cho việc này). Dùng khi họ hỏi Javis đang nhớ gì, bảo sửa, quên, đừng nhớ thêm, hay bảo một trợ "
+        "khác cho việc này). Dùng khi họ hỏi IDC Harness đang nhớ gì, bảo sửa, quên, đừng nhớ thêm, hay bảo một trợ "
         "lý thôi làm điều đã học. "
         "op=list: các ghi nhớ (slug, loại, nguồn, ngày) và công tắc ghi nhớ mới. "
         "op=edit {slug, text}: viết lại một ghi nhớ. "
-        "op=forget {slug}: quên hẳn, Javis không tự học lại từ chat cũ. "
+        "op=forget {slug}: quên hẳn, IDC Harness không tự học lại từ chat cũ. "
         "op=learning {enabled}: bật/tắt lưu ghi nhớ mới của brain này (không truyền enabled = xem). "
         "op=profile {text}: hồ sơ chung mọi brain (xưng hô, ngôn ngữ, mức chi tiết); không truyền text = xem, "
         "text rỗng = xoá. "

@@ -96,7 +96,7 @@ def register(ctx):
     ctx.register_tool(
         name="javis_ui",
         description=(
-            "Điều khiển DASHBOARD Javis đang mở trong trình duyệt của người dùng: mở trang, mở file, "
+            "Điều khiển DASHBOARD IDC Harness đang mở trong trình duyệt của người dùng: mở trang, mở file, "
             "mở việc, cuộn. Dùng khi người dùng bảo (bằng lời hoặc gõ) 'mở trang Việc', 'mở file X', "
             "'cho xem việc vừa giao', 'cuộn xuống'. action=open_page (target: id trang - "
             + ", ".join(PAGES) + " - hoặc ĐÚNG tên tiếng Việt đang hiện trên thanh bên: 'việc', 'tệp tin', 'cài đặt', 'trợ lý' và 'quy trình' = workspace (trang Cộng sự), 'kỹ năng' = skills, 'công cụ' = plugins); "

@@ -66,7 +66,7 @@ def _tao(args, ctx) -> str:
     if tu_gan:
         ra.append(f"Người nhận báo: tự gắn khung chat đang hỏi ({chat_id}).")
     elif not chat_id:
-        ra.append("Chưa gắn người nhận (chat_id): báo sẽ về khung chat Javis Core của brain này và hòm thư.")
+        ra.append("Chưa gắn người nhận (chat_id): báo sẽ về khung chat IDC Harness Core của brain này và hòm thư.")
     co, thieu = f.deps.channels() if f.deps.channels else (True, "")
     if not co:
         ra.append(f"LƯU Ý: chưa có kênh ngoài ({thieu}), nên báo chỉ nằm trong khung chat web và hòm thư, không tới "

@@ -1,6 +1,6 @@
 """Bundled plugin: `javis_plugin`, create, read and edit user plugins from chat (owner, 2026-10-25).
 
-Asked to make a plugin, Javis used to give the owner a zip to download and upload again: API engines
+Asked to make a plugin, IDC Harness used to give the owner a zip to download and upload again: API engines
 write only inside the vault, and CLI engines may not reach `<JAVIS_STATE_DIR>`. This tool installs
 the plugin where the app loads it, for every engine. The work and every safety rule live in
 `server/plugin_authoring.py`; this file only maps the ops.

@@ -12,7 +12,7 @@ min_mode=readonly: thuần đọc, không ghi file, không tiêu tiền, không 
 loop/agent ở chế độ chỉ-đọc vẫn tóm tắt được video.
 
 KHÔNG dùng cookie đăng nhập YouTube, có chủ ý: đổi lại là chịu thua video thật sự riêng tư,
-nhưng Javis không phải giữ phiên đăng nhập của người dùng trên máy chủ - thứ mà lộ ra là
+nhưng IDC Harness không phải giữ phiên đăng nhập của người dùng trên máy chủ - thứ mà lộ ra là
 mất luôn tài khoản. Ca hay gặp trên VPS ("nghi máy chủ là robot") thì đã có sáu kiểu trình
 phát và yt-dlp lo, không cần tới cookie.
 """

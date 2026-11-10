@@ -21,7 +21,7 @@ def _vault():
 
 
 def _line(v: dict) -> str:
-    on = "Javis được dùng" if v["allow_ai"] else "ĐANG TẮT cho Javis"
+    on = "Javis được dùng" if v["allow_ai"] else "ĐANG TẮT cho IDC Harness"
     het = " · cookie đã quá hạn" if v.get("expired") else ""
     return (f"{v['name']} · {', '.join(v['domains'][:6])} · {_STATUS.get(v['status'], v['status'])} · {on}{het}")
 

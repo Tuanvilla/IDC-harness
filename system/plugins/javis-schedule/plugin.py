@@ -369,7 +369,7 @@ async def _post_reminder(payload: dict, brain_name: str = "") -> str:
     if not data.get("ok"):
         if data.get("can_force"):
             # THIẾU ĐIỀU KIỆN, không phải lỗi cú pháp. Model TUYỆT ĐỐI không được tự vượt rào:
-            # phải nói thiếu gì rồi để user quyết. Đây đúng cái khách phàn nàn - Javis dựng cron
+            # phải nói thiếu gì rồi để user quyết. Đây đúng cái khách phàn nàn - IDC Harness dựng cron
             # "báo qua Telegram" trong khi Telegram còn chưa đấu, rồi im lặng không nói gì.
             return (f"ERROR: {data.get('error')}\n"
                     "→ BÁO LẠI CHO USER đúng thứ còn thiếu ở trên và HỎI: đấu Telegram trước, "
@@ -394,8 +394,8 @@ async def _post_reminder(payload: dict, brain_name: str = "") -> str:
     if data.get("speak"):
         ra += " Kết quả sẽ kèm tin thoại đọc thành tiếng."
     if data.get("call"):
-        ra += (" Tới giờ Javis sẽ GỌI ĐẾN trên trang Javis đang mở: bấm Nghe là vào cuộc gọi và Javis đọc"
-               " kết quả; không mở Javis thì kết quả vẫn tới như tin nhắn thường.")
+        ra += (" Tới giờ IDC Harness sẽ GỌI ĐẾN trên trang IDC Harness đang mở: bấm Nghe là vào cuộc gọi và IDC Harness đọc"
+               " kết quả; không mở IDC Harness thì kết quả vẫn tới như tin nhắn thường.")
     return ra
 
 
@@ -641,7 +641,7 @@ def register(ctx) -> None:
             "ĐỦ ĐIỀU KIỆN MỚI TẠO: trước khi op=create, tự hỏi việc này tới giờ chạy có ĐỦ thứ "
             "cần không (nguồn dữ liệu đã đấu chưa, kênh báo kết quả đã có chưa). Thiếu thì NÓI "
             "THẲNG thiếu gì và hỏi user, KHÔNG tạo trước rồi im lặng để nó chạy thất bại mỗi ngày. "
-            "CHỈ GỌI khi user ra lệnh rõ ràng với lịch tự động của Javis; KHÔNG gọi chỉ vì câu có "
+            "CHỈ GỌI khi user ra lệnh rõ ràng với lịch tự động của IDC Harness; KHÔNG gọi chỉ vì câu có "
             "'đặt lịch', booking, tư vấn 1-1, cuộc hẹn, hoặc đang bàn về sản phẩm/UX/marketing. "
             "Trong các trường hợp đó phải trả lời hội thoại bình thường, không op=list/create/cancel. "
             "Tool TỰ CHỌN kho: lịch "
@@ -686,8 +686,8 @@ def register(ctx) -> None:
                 "speak": {"type": "boolean",
                           "description": "true = tới giờ gửi kèm TIN THOẠI đọc kết quả thành tiếng (user muốn nghe)."},
                 "call": {"type": "boolean",
-                         "description": ("true = tới giờ Javis GỌI ĐẾN như cuộc gọi trên trang Javis đang mở, user bấm "
-                                         "Nghe thì Javis đọc kết quả và nói chuyện tiếp (\"7h gọi đọc báo cáo cho anh\").")},
+                         "description": ("true = tới giờ IDC Harness GỌI ĐẾN như cuộc gọi trên trang IDC Harness đang mở, user bấm "
+                                         "Nghe thì IDC Harness đọc kết quả và nói chuyện tiếp (\"7h gọi đọc báo cáo cho anh\").")},
                 "remember_last": {"type": "boolean",
                                   "description": ("true = mỗi lần chạy nhận lại kết quả lần trước (theo dõi, "
                                                   "báo cái mới). Chỉ cho nhắc hẹn tự làm, không cho loop.")},

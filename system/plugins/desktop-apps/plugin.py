@@ -1,8 +1,8 @@
-"""Plugin bundled: mở / đóng / liệt kê app trên chính máy đang chạy Javis.
+"""Plugin bundled: mở / đóng / liệt kê app trên chính máy đang chạy IDC Harness.
 
-Vì sao là plugin chứ không phải Desktop Agent riêng (roadmap Phase 5): trên máy chủ dự án Javis
-ĐANG chạy ngay trên máy Windows của họ, nên hai file Python làm được phần lớn giá trị. Khi Javis
-chạy trong Docker trên VPS, `check_fn` chặn và nói rõ lý do; điều khiển máy KHÁC máy chạy Javis
+Vì sao là plugin chứ không phải Desktop Agent riêng (roadmap Phase 5): trên máy chủ dự án IDC Harness
+ĐANG chạy ngay trên máy Windows của họ, nên hai file Python làm được phần lớn giá trị. Khi IDC Harness
+chạy trong Docker trên VPS, `check_fn` chặn và nói rõ lý do; điều khiển máy KHÁC máy chạy IDC Harness
 là việc của Desktop Agent sau này. Xem docs/dev/2026-10-voice-call-spec.md phụ lục A6.
 
 Ba tool, ba mức quyền:
@@ -372,10 +372,10 @@ def check_ready() -> Optional[str]:
     mode = deploy_info.deploy_mode() if deploy_info else ("windows" if IS_WIN else "native")
     if mode == "docker":
         return ("Javis đang chạy trong Docker trên máy chủ, không phải trên máy của bạn, nên không "
-                "mở hay đóng app trên máy bạn được. Muốn dùng tính năng này hãy chạy Javis ngay "
+                "mở hay đóng app trên máy bạn được. Muốn dùng tính năng này hãy chạy IDC Harness ngay "
                 "trên máy tính đang ngồi.")
     if not IS_WIN and not IS_MAC and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
-        return ("Máy chạy Javis là Linux không có màn hình (không có DISPLAY), nên không mở app "
+        return ("Máy chạy IDC Harness là Linux không có màn hình (không có DISPLAY), nên không mở app "
                 "đồ hoạ được.")
     return None
 
@@ -564,7 +564,7 @@ def resolve_close(name: str, running: List[dict]) -> Tuple[str, str]:
     if not hit:
         return "", f"không thấy app nào đang chạy khớp '{n}'. Gọi javis_app_list để xem app đang chạy."
     if hit.lower() in _PROTECTED:
-        return "", f"'{hit}' là tiến trình hệ thống hoặc chính Javis, tool không đóng."
+        return "", f"'{hit}' là tiến trình hệ thống hoặc chính IDC Harness, tool không đóng."
     return hit, ""
 
 
@@ -600,7 +600,7 @@ def _close(args, ctx) -> str:
 def register(ctx):
     ctx.register_tool(
         name="javis_app_list",
-        description=("Liệt kê app đã cài và app đang chạy trên máy đang chạy Javis. Dùng khi người "
+        description=("Liệt kê app đã cài và app đang chạy trên máy đang chạy IDC Harness. Dùng khi người "
                      "dùng hỏi 'đang mở app nào', 'máy có app gì', hoặc trước khi mở/đóng mà chưa chắc tên. "
                      "filter: lọc theo chuỗi (tuỳ chọn)."),
         handler=_list, min_mode="readonly", check_fn=check_ready,
@@ -608,7 +608,7 @@ def register(ctx):
     )
     ctx.register_tool(
         name="javis_app_open",
-        description=("MỞ một app / địa chỉ web / file trên máy đang chạy Javis, làm ngay không hỏi lại. "
+        description=("MỞ một app / địa chỉ web / file trên máy đang chạy IDC Harness, làm ngay không hỏi lại. "
                      "name: tên app (khớp mờ, có bí danh: chrome, edge, word, excel, máy tính, notepad, "
                      "vscode, zalo...), hoặc URL http(s), hoặc đường dẫn tuyệt đối trong thư mục người "
                      "dùng / trong brain. Dùng khi người dùng nói 'mở Chrome', 'bật Excel lên', "
@@ -619,7 +619,7 @@ def register(ctx):
     )
     ctx.register_tool(
         name="javis_app_close",
-        description=("ĐÓNG một app đang chạy trên máy đang chạy Javis, làm ngay không hỏi lại. name: tên "
+        description=("ĐÓNG một app đang chạy trên máy đang chạy IDC Harness, làm ngay không hỏi lại. name: tên "
                      "app hoặc tiêu đề cửa sổ. Mặc định đóng lịch sự (app có tài liệu chưa lưu sẽ tự hỏi "
                      "lưu); force=true chỉ khi người dùng nói 'ép tắt' / 'tắt hẳn'. Dùng khi người dùng nói "
                      "'tắt Chrome', 'đóng Excel'. " + OUTCOME_RULE),
