@@ -52,7 +52,7 @@ def register(ctx):
     ctx.register_tool(
         name="javis_tool_stats",
         description=("Thống kê số lần mỗi tool đã được gọi (do plugin tool-audit ghi qua hook post_tool_call). "
-                     "Xem tool/nguồn dữ liệu nào Javis hay dùng nhất."),
+                     "Xem tool/nguồn dữ liệu nào IDC Harness hay dùng nhất."),
         handler=_stats, min_mode="readonly",
         schema={"type": "object", "properties": {}},
     )

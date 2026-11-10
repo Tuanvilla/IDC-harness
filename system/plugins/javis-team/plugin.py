@@ -2,8 +2,8 @@
 
 Vì sao có tool này
 ==================
-Chủ dự án (2026-10-16) muốn nói trong chat "tạo nhóm thử gồm vài trợ lý, mỗi người một model" là Javis làm luôn: tạo trợ lý
-còn thiếu, lập nhóm, chọn trưởng nhóm. Trước bản này Javis chỉ có route `/teams/*` sau cổng đăng nhập, nên một phiên chat phải
+Chủ dự án (2026-10-16) muốn nói trong chat "tạo nhóm thử gồm vài trợ lý, mỗi người một model" là IDC Harness làm luôn: tạo trợ lý
+còn thiếu, lập nhóm, chọn trưởng nhóm. Trước bản này IDC Harness chỉ có route `/teams/*` sau cổng đăng nhập, nên một phiên chat phải
 điều khiển trình duyệt (Playwright) và vấp lỗi 401. Tool chạy IN-PROCESS qua `team_api.current()`: cùng một lớp `TeamOps` mà
 route của trang Nhóm dùng, nên luật (trợ lý phải có thật, khoá, huỷ việc khi lưu trữ, chạy lại khi mở lại) y như bấm tay.
 
@@ -12,7 +12,7 @@ Luật an toàn
 - `vault_root` rỗng -> lỗi rõ, không bao giờ đoán brain (giống `javis_task`).
 - Xoá chỉ nhận nhóm ĐÃ lưu trữ và phải có `confirm: true`; model chỉ đặt cờ đó khi chủ nói rõ là xoá.
 - Mức `safe`: chỉ ghi file trợ lý và dữ liệu nhóm trong máy, không thao tác ra ngoài. Chỉ chủ dùng (`OWNER_ONLY_TOOLS`).
-- op=dispatch / job (0.357.0, issue #826): Javis Core giao một việc cho nhóm có sẵn và đọc lại trạng thái, nghiệm thu.
+- op=dispatch / job (0.357.0, issue #826): IDC Harness Core giao một việc cho nhóm có sẵn và đọc lại trạng thái, nghiệm thu.
   Luật nằm ở `team_dispatch.py`: chỉ lượt của chủ hay việc nền chủ đã lên lịch, không bao giờ từ một bước việc nhóm;
   nơi báo kết quả lấy từ lượt, không từ model.
 """
@@ -56,7 +56,7 @@ def _err_text(ex: Exception) -> str:
 
 
 def _dispatch(ops, root, team, args, turn) -> str:
-    """op=dispatch (0.357.0, issue #826): Javis Core giao MỘT việc cho nhóm có sẵn, kết quả tự báo về khung chat đã giao."""
+    """op=dispatch (0.357.0, issue #826): IDC Harness Core giao MỘT việc cho nhóm có sẵn, kết quả tự báo về khung chat đã giao."""
     got = team_dispatch.dispatch(ops, root, team, args.get("objective") or args.get("description"), turn,
                                  assignee=_s(args.get("assignee") or args.get("slug")),
                                  request_id=_s(args.get("request_id")))
@@ -66,12 +66,12 @@ def _dispatch(ops, root, team, args, turn) -> str:
            f"Mã việc: {got['task_id']}", f"Mã đối chiếu: {got['correlation_id']}",
            "Trạng thái: " + team_dispatch.phase(task, None, team)[1]]
     if got["report_to"]:
-        out.append("Nhóm làm xong, bị chặn hay cần chủ quyết thì Javis tự báo về đúng khung chat này (và hòm thư); "
+        out.append("Nhóm làm xong, bị chặn hay cần chủ quyết thì IDC Harness tự báo về đúng khung chat này (và hòm thư); "
                    "không cần chờ hay hứa báo lại. Xem tiến độ: op=job với task là mã việc.")
     else:
-        out.append("Không rõ khung chat để báo, nên kết quả về Javis Core của brain và hòm thư. Xem tiến độ: op=job.")
+        out.append("Không rõ khung chat để báo, nên kết quả về IDC Harness Core của brain và hòm thư. Xem tiến độ: op=job.")
     if got["quality"]:
-        out.append("Nhóm bật nghiệm thu: việc chỉ tính ĐẠT khi qua kiểm hay chủ xác nhận trên thẻ; Javis không tự duyệt.")
+        out.append("Nhóm bật nghiệm thu: việc chỉ tính ĐẠT khi qua kiểm hay chủ xác nhận trên thẻ; IDC Harness không tự duyệt.")
     if got["paused"]:
         out.append("CẢNH BÁO: nhóm đang tạm dừng nên việc NẰM CHỜ, chưa chạy. Nói rõ với chủ: bật lại nhóm ở trang Nhóm.")
     return "\n".join(out)
@@ -295,7 +295,7 @@ def register(ctx):
         "mã không tạo việc thứ hai). Kết quả TỰ báo về khung chat đang hỏi khi xong, bị chặn hay cần chủ quyết. "
         "op=job: team + task (mã việc hay mã đối chiếu) -> trạng thái, kết quả, nghiệm thu (XONG khác ĐẠT). "
         "team nhận mã nhóm hay tên nhóm. Model riêng: model là tên model (vd sonnet, haiku, opus, gpt-5.5), "
-        "model_provider là nhà chạy (anthropic-cli, openai-oauth, openrouter, ...); bỏ trống provider thì Javis tự suy.",
+        "model_provider là nhà chạy (anthropic-cli, openai-oauth, openrouter, ...); bỏ trống provider thì IDC Harness tự suy.",
         _run,
         schema={
             "type": "object",

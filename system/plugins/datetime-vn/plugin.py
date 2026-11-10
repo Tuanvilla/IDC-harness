@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 # `javis_now` / `javis_date_add` cũng giữ - chúng đã nằm trong prompt và trong thói quen dùng.
 #
 # Rơi về UTC+7 khi chưa nạp được cấu hình (plugin có thể chạy ngoài tiến trình server), vì đó
-# vẫn là mặc định của Javis và VN không có giờ mùa hè nên nó là hằng số đáng tin.
+# vẫn là mặc định của IDC Harness và VN không có giờ mùa hè nên nó là hằng số đáng tin.
 _TZ_DU_PHONG = timezone(timedelta(hours=7))
 _WD_DU_PHONG = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 

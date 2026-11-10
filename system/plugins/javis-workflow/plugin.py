@@ -1,7 +1,7 @@
 """Plugin bundled: tool `javis_workflow` - đọc lịch sử chạy quy trình, từ MỌI engine.
 
 Vì sao tồn tại: kho `workflow_runs` (server/workflow_runs.py) ghi mọi lần chạy quy trình, nhưng
-bộ não chính không có đường nào tới nó. Người dùng hỏi "quy trình vừa chạy ra sao" là Javis
+bộ não chính không có đường nào tới nó. Người dùng hỏi "quy trình vừa chạy ra sao" là IDC Harness
 trả lời trống, đúng lỗi chủ dự án báo 2026-09-15. Tool này chỉ ĐỌC (min_mode readonly), nên
 chạy được cả ở chế độ suggest. Muốn chạy quy trình thì giao việc Kanban (javis_task, route
 wf:<slug>) hoặc vào trang Cộng sự.

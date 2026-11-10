@@ -1,4 +1,4 @@
-"""Plugin bundled: tool `javis_goal` - bộ não tự lập hoặc cập nhật mục tiêu bền (Javis Resonance, M2).
+"""Plugin bundled: tool `javis_goal` - bộ não tự lập hoặc cập nhật mục tiêu bền (IDC Harness Resonance, M2).
 
 Vì sao là tool của bộ não
 =========================
@@ -11,7 +11,7 @@ Host làm phần code làm chắc hơn model
 - Kiểm đề xuất theo SMART (`resonance.validate_proposal`): câu căn cứ phải trích đúng lời người dùng,
   phải có tiêu chí kiểm được và chân trời; hạn chót hay chỉ tiêu không có căn cứ thì không giữ nguyên.
 - Biết ĐÚNG lượt nào đang gọi nhờ ngữ cảnh lượt do host gắn (`turn_context`, A1): phiên, id tin và agent của phiên.
-  Engine trong tiến trình đọc thẳng; engine CLI mang khoá `X-Javis-Turn` qua hub. Không có ngữ cảnh, lượt không thuộc
+  Engine trong tiến trình đọc thẳng; engine CLI mang khoá `X-IDC Harness-Turn` qua hub. Không có ngữ cảnh, lượt không thuộc
   một agent, hay agent chưa bật Cộng hưởng thì từ chối trước mọi lần ghi kho. Không đoán "lượt duy nhất của brain".
 - Một tin nhắn chỉ tạo một mục tiêu; cập nhật cần đúng `expected_revision`. Mục tiêu thuộc đúng agent của lượt:
   list và update không thấy mục tiêu của agent khác.
@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-_NOTE = ("Lưu ý: mục tiêu sẽ được Javis làm tiếp ở NỀN từng bước, trong hạn mức {budget} lượt gọi model; "
+_NOTE = ("Lưu ý: mục tiêu sẽ được IDC Harness làm tiếp ở NỀN từng bước, trong hạn mức {budget} lượt gọi model; "
          "kết quả, việc cần người dùng xác nhận hay lý do phải dừng tự hiện trong khung chat này. Nói đúng như vậy, "
          "đừng hứa thời điểm cụ thể. Bộ thực thi nền chỉ có lời người dùng và khung mục tiêu, KHÔNG đọc được file "
          "hay dữ liệu khác: phần cần dữ liệu thì làm ngay trong lượt này.")
@@ -119,7 +119,7 @@ _PLAIN = " Không lập mục tiêu; trả lời người dùng bình thường.
 
 def _scope_note(store, p, g, mref: str) -> str:
     """A4: phạm vi ghi của revision này và mã bàn giao (`handoff`) của lượt, để bộ não nộp sản phẩm qua
-    javis_submit_deliverable và nói ĐÚNG với người dùng. Javis không cấp quyền ghi từ lời chat: đích mới luôn chờ
+    javis_submit_deliverable và nói ĐÚNG với người dùng. IDC Harness không cấp quyền ghi từ lời chat: đích mới luôn chờ
     chủ dự án bấm Cho phép trên thẻ."""
     try:
         import resonance as R
@@ -135,7 +135,7 @@ def _scope_note(store, p, g, mref: str) -> str:
     elif st == "pending":
         lines.append(f"Phạm vi ghi: CHƯA được cho phép. Thẻ mục tiêu sẽ hỏi chủ dự án có cho ghi vào {path} không. "
                      "Nói đúng như vậy; đừng nói đã ghi hay sẽ tự ghi. Bản bạn nộp bây giờ chỉ được giữ làm nháp; "
-                     "chủ dự án bấm Cho phép thì Javis đăng đúng bản đó.")
+                     "chủ dự án bấm Cho phép thì IDC Harness đăng đúng bản đó.")
     elif st in ("revoked", "denied", "missing"):
         lines.append("Phạm vi ghi: không có quyền ghi lúc này (chủ dự án đã thu hồi hay chưa cho phép).")
     if b is not None and b.get("status") == "live" and path:
@@ -311,7 +311,7 @@ _SCHEMA = {
 
 
 _SUBMIT_MSG = {
-    "no_turn": "Không xác định được lượt chat đang gọi (engine này chưa mang được ngữ cảnh lượt tới Javis).",
+    "no_turn": "Không xác định được lượt chat đang gọi (engine này chưa mang được ngữ cảnh lượt tới IDC Harness).",
     "not_agent_turn": "Chỉ nộp được trong cuộc trò chuyện với một trợ lý đã bật Cộng hưởng.",
     "invalid_content": "content phải là toàn văn sản phẩm, không rỗng.",
     "path_rejected": "Đường đích không nhận (ngoài brain, có . hay .., đuôi không phải .md/.txt, hay thư mục cấm).",
@@ -355,7 +355,7 @@ async def javis_submit_deliverable(args, ctx):
         return f"ERROR {code}: {_SUBMIT_MSG.get(code, code)}{extra}"
     st = res["status"]
     what = {"candidate": "chờ host đăng vào file đích cuối lượt",
-            "awaiting_scope": "giữ làm NHÁP; file đích chưa được cho phép, chủ dự án bấm Cho phép thì Javis đăng đúng "
+            "awaiting_scope": "giữ làm NHÁP; file đích chưa được cho phép, chủ dự án bấm Cho phép thì IDC Harness đăng đúng "
                               "bản này",
             "published": "đã đăng"}.get(st, st)
     return (f"Đã nhận bản nộp {res['submission_id']} (sha256 {res['sha256'][:12]}, {res['size']} byte): {what}."

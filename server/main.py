@@ -4305,6 +4305,13 @@ async def _schedule_cancel_action(message: str, brain):
     try:
         vault_root = _brain_root(brain)
         tools, route = await mcp_hub.discover_all("full", vault_root=vault_root)
+        if "javis_schedule" not in {t.get("fn") for t in tools}:
+            # Danh sách tool được cache (60s, nền tới 15 phút): một lượt dò chạy ngay sau
+            # khi server khởi động lại có thể thiếu plugin lịch rồi bị cache giữ lại, làm
+            # lệnh huỷ chết oan dù plugin vẫn khoẻ (sự cố 2026-11-11). Thiếu đúng tool
+            # này thì dò lại MỘT lần bằng danh sách mới tinh trước khi bỏ cuộc.
+            tools, route = await mcp_hub.discover_all(
+                "full", vault_root=vault_root, force_refresh=True)
         return await engine.schedule_cancel_gateway(messages, tools, route)
     except Exception as exc:
         return {

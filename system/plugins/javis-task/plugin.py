@@ -7,7 +7,7 @@ trong đó có "giao việc Kanban", và khác biệt duy nhất là chạy đư
 
 Lời hứa đó SAI cho tới bản này. Đường duy nhất để giao việc là `POST /kanban/task`, mà gọi được
 nó thì phải có Bash và curl - tức là chỉ Claude Code với Codex. Năm engine API đứng ngoài. Tệ
-hơn, chính `CLAUDE.md` còn dặn Javis "đừng bao giờ nói mình không làm task được, sai sự thật",
+hơn, chính `CLAUDE.md` còn dặn IDC Harness "đừng bao giờ nói mình không làm task được, sai sự thật",
 nên một engine API sẽ TỰ TIN nhận lời rồi im lặng không làm gì - kiểu hỏng tệ nhất, vì người
 dùng đợi một việc không bao giờ chạy.
 
@@ -20,7 +20,7 @@ Gọi THẲNG, không đi vòng qua HTTP
 `javis-schedule` POST tới `/reminders` được vì route đó CỐ Ý miễn đăng nhập cho localhost
 (`main._AUTH_LOCAL_EXACT`). `/kanban/task` thì không, và cách duy nhất để nó gọi được qua HTTP
 là thêm vào danh sách miễn auth đó - nghĩa là bất kỳ tiến trình nào trên cùng máy chủ cũng giao
-được việc cho Javis mà không cần credential. Không đáng, khi plugin vốn đã chạy IN-PROCESS:
+được việc cho IDC Harness mà không cần credential. Không đáng, khi plugin vốn đã chạy IN-PROCESS:
 `tasks.current()` cho ngay hàng đợi thật, không hở thêm cửa nào.
 
 Mức quyền
@@ -205,7 +205,7 @@ def _them(args, ctx) -> str:
             chat_id = ""
     deps = [d.strip() for d in str((args or {}).get("deps") or "").split(",") if d.strip()]
     # 0.429.0: a dedicated chatbot's turn stamps the job with that bot ("bot:<id>"), so the Tasks page shows it under
-    # the bot's assistant instead of Javis Core. The host sets the bot in turn_context, never the model.
+    # the bot's assistant instead of IDC Harness Core. The host sets the bot in turn_context, never the model.
     nguoi_tao = "chat"
     try:
         import turn_context

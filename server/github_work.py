@@ -306,7 +306,7 @@ def ship(sid: str, brain: str, repo: Dict[str, Any], report: Dict[str, Any]) -> 
         # The last PR of this chat is merged: what comes now is a new job on the branch the worktree is on.
         row = st().update(sid, fn, branch="", head_sha="", pr_number=0, pr_url="", pr_node_id="", ci="none",
                           integ="no_pr", post_merge="", merged_sha="", fix_rounds=0, rerun_used=0)
-    sha = commit_all(repo["worktree"], f"{title[:72]}\n\nJavis chat {sid[:8]}")
+    sha = commit_all(repo["worktree"], f"{title[:72]}\n\nIDC Harness chat {sid[:8]}")
     branch = row.get("branch") or _final_branch(sid, repo, title)
     pushed_sha, pushed_now = push(repo, branch)
     pr = ensure_pr(repo, branch, title, pr_body(info, report, sid))
@@ -1063,7 +1063,7 @@ def add_lesson(brain: str, full_name: str, lesson: str) -> bool:
     cur = (cur + [lesson])[-LESSONS_MAX:]
     p = lessons_path(brain, full_name)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(f"# Bài học của repo {full_name}\n\nJavis tự ghi khi một lỗi thật vừa được sửa. Mỗi dòng một bài học.\n\n"
+    p.write_text(f"# Bài học của repo {full_name}\n\nIDC Harness tự ghi khi một lỗi thật vừa được sửa. Mỗi dòng một bài học.\n\n"
                  + "\n".join(f"- {x}" for x in cur) + "\n", encoding="utf-8")
     return True
 

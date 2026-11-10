@@ -2,7 +2,7 @@
 
 Spec: docs/superpowers/specs/2026-10-05-bo-phan-xu-tu-soat-design.md, section 3.4.
 
-Before this, the judge's store was reachable only from the Chatbot page. Asked "why did the bot stay silent", Javis
+Before this, the judge's store was reachable only from the Chatbot page. Asked "why did the bot stay silent", IDC Harness
 could only guess from the docs, and once guessed wrong in front of the owner. These tools give every brain (Claude
 Code, Codex, API engines alike) the same view the background self-review gets, and the same closed set of knobs.
 

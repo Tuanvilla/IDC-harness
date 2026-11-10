@@ -2188,9 +2188,19 @@ async def schedule_cancel_gateway(messages, mcp_tools, mcp_route):
         return None
     names = {t.get("fn") for t in (mcp_tools or [])}
     if "javis_schedule" not in names:
+        # Đừng lộ tên tool nội bộ cho user (họ không làm được gì với nó) và phải nói rõ
+        # CHƯA có gì bị huỷ - câu cũ "javis_schedule không có trong MCP của phiên" làm
+        # chủ máy tưởng lỗi lạ trong khi lịch cũ vẫn nguyên (sự cố 2026-11-11).
+        # missing_tool=True để phía gọi (main._schedule_cancel_action) thử dò lại tool
+        # một lần bằng danh sách mới trước khi chịu thua.
         return {
             "handled": False,
-            "error": "javis_schedule không có trong MCP của phiên",
+            "missing_tool": True,
+            "error": (
+                "Chưa huỷ được lịch nào: công cụ quản lý lịch chưa sẵn sàng trong phiên này "
+                "nên chưa có thay đổi gì - các lịch hiện có vẫn còn nguyên. "
+                "Hãy mở phiên chat mới rồi ra lệnh lại, hoặc huỷ trực tiếp tại trang Lịch trên dashboard."
+            ),
             "calls": [],
         }
     import mcp_client

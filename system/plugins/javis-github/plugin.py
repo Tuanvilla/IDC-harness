@@ -73,7 +73,7 @@ def _chay(args, ctx) -> str:
         except ValueError as e:
             return f"ERROR: {e}"
         return (f"Đã xếp việc kế tiếp #{out['id']}. Khi mọi PR của khung chat này đã merge và kiểm tra sau merge "
-                "qua, Javis tự mở một lượt mới để làm việc này. Nói với người dùng đúng như vậy, đừng hứa tự báo.")
+                "qua, IDC Harness tự mở một lượt mới để làm việc này. Nói với người dùng đúng như vậy, đừng hứa tự báo.")
     if op == "cancel":
         try:
             out = github_work.cancel_next(sid, int((args or {}).get("id") or 0))
@@ -86,7 +86,7 @@ def _chay(args, ctx) -> str:
 def register(ctx):
     ctx.register_tool(
         "javis_github",
-        "GitHub của khung chat này. Sau mỗi lượt có sửa code, Javis TỰ kiểm tra, commit, đẩy lên, mở PR, theo dõi CI "
+        "GitHub của khung chat này. Sau mỗi lượt có sửa code, IDC Harness TỰ kiểm tra, commit, đẩy lên, mở PR, theo dõi CI "
         "và merge theo cài đặt của repo, bạn không làm mấy việc đó và không hứa 'xong em báo'. "
         "op=status: trạng thái nhánh, PR, CI, merge, lý do kẹt. op=next text=...: xếp MỘT việc người dùng đã giao để "
         "Javis tự làm khi PR hiện tại đã merge xong (chỉ việc người dùng yêu cầu, không phải kế hoạch bạn tự nghĩ). "
