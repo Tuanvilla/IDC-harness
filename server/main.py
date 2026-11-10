@@ -70,6 +70,7 @@ import borrowed_eyes   # mắt mượn: bộ não khác xem hộ ảnh khi model
 import image_vision
 import openai_oauth
 import claude_update   # tự chạy `claude update` hằng ngày để model mới hiện ra
+import sdk_update      # gói claude-agent-sdk cũng tự cập nhật trong cùng dòng phiên bản (sdk_update.py)
 import agy_update      # cùng việc đó cho Antigravity CLI: `agy update` hằng ngày (0.137.0)
 import claude_models   # model Claude LIVE cho provider anthropic-cli (hỏi bằng API key, nếu có)
 import winproc         # chạy lệnh con câm lặng trên Windows (không nháy console đen)
@@ -4773,6 +4774,8 @@ def claude_status(refresh: bool = False):
     # The daily-update switch on the card: its state, and whether the env var forces it off.
     d["auto_update"] = claude_update.bat()
     d["auto_update_env_off"] = claude_update.env_off()
+    # Gói Claude Agent SDK đi cùng công tắc tự cập nhật (sdk_update.py). Chỉ đọc file, không tiến trình con.
+    d["sdk"] = sdk_update.status()
     return d
 
 
@@ -4796,8 +4799,28 @@ async def _cap_nhat_claude(ly_do: str) -> dict:
 
 @app.post("/claude/update")
 async def claude_update_now():
-    """Nút "Cập nhật Claude Code" trên trang Models: chạy ngay, không chờ vòng hằng ngày."""
-    return await _cap_nhat_claude("tay")
+    """Nút "Cập nhật Claude Code" trên trang Models: chạy ngay, không chờ vòng hằng ngày.
+
+    Cùng lần bấm cũng xét bản Claude Agent SDK mới hơn (sdk_update.py); kết quả nằm ở
+    khóa `sdk` và không làm thay đổi việc cập nhật Claude Code có tính là xong hay không."""
+    kq = await _cap_nhat_claude("tay")
+    kq = dict(kq or {})
+    kq["sdk"] = await _update_sdk("manual")
+    return kq
+
+
+async def _update_sdk(reason: str) -> dict:
+    """One SDK update attempt on a worker thread (pip and a check process: minutes, never on the event loop)."""
+    try:
+        r = await asyncio.to_thread(sdk_update.update, reason)
+    except Exception as e:  # noqa: BLE001 - reported, never a broken request or a dead loop
+        r = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+    if r.get("changed"):
+        print(f"[sdk update] claude-agent-sdk {r.get('from')} -> {r.get('to')} ({reason}); in use after the next restart",
+              file=sys.stderr)
+    elif not r.get("ok") and not r.get("docker"):
+        print(f"[sdk update] not updated ({reason}): {r.get('error')}", file=sys.stderr)
+    return {**r, **{k: v for k, v in sdk_update.status().items() if k in ("installed", "loaded", "restart_needed")}}
 
 
 @app.on_event("startup")
@@ -4838,6 +4861,11 @@ async def _tu_cap_nhat_claude():
             except Exception as e:
                 print(f"[claude update] vòng tự cập nhật lỗi: {type(e).__name__}: {e}",
                       file=sys.stderr)
+            try:
+                if sdk_update.enabled() and sdk_update.due():
+                    await _update_sdk("auto")
+            except Exception as e:  # noqa: BLE001
+                print(f"[sdk update] daily pass failed: {type(e).__name__}: {e}", file=sys.stderr)
             await asyncio.sleep(3600)
     asyncio.create_task(_vong())
 
@@ -14843,9 +14871,30 @@ async def do_update():
 
     st = _read_update_state()
     if st.get("phase") in _UPDATE_ACTIVE and _update_recent(st.get("started_at")):
-        return JSONResponse({"ok": False, "error": localefmt.chu("Đang cập nhật rồi, chờ chút.",
-                                                                 "An update is already running, please wait."),
-                             "phase": st.get("phase")}, status_code=409)
+        # Nói rõ đang ở bước nào, còn bao lâu khoá tự nhả và đuôi log mới nhất: sự cố
+        # 2026-11-11 (updater treo ở bước dừng server, chủ máy bấm lại chỉ nhận "đang cập
+        # nhật rồi" trơ) cho thấy thiếu ba thứ này là không phân biệt được đang chạy thật
+        # hay lần trước đã chết, cũng không biết khi nào bấm lại được.
+        con_lai = 900
+        try:
+            con_lai = max(0, 900 - int((_dt.datetime.now() - _dt.datetime.fromisoformat(st.get("started_at"))).total_seconds()))
+        except Exception:
+            pass
+        phut = max(1, (con_lai + 59) // 60)
+        tail = ""
+        try:
+            logf = cfgmod.STATE_DIR / "update.log"
+            if logf.exists():
+                tail = "\n".join(logf.read_text(encoding="utf-8", errors="replace").splitlines()[-10:])
+        except Exception:
+            tail = ""
+        return JSONResponse({"ok": False, "error": localefmt.chu(
+                                 f"Đang cập nhật rồi (bước: {st.get('phase')}). Nếu lần cập nhật trước bị treo, "
+                                 f"nút sẽ bấm lại được sau khoảng {phut} phút nữa.",
+                                 f"An update is already running (step: {st.get('phase')}). If the previous run hung, "
+                                 f"the button unlocks in about {phut} minute(s)."),
+                             "phase": st.get("phase"), "retry_after_s": con_lai, "log_tail": tail},
+                            status_code=409)
 
     # Claim NGAY sau guard (KHÔNG có await ở giữa → nguyên tử với event loop) để chặn double-click:
     # request thứ 2 đọc phase="preparing" (thuộc _UPDATE_ACTIVE) sẽ bị 409.
