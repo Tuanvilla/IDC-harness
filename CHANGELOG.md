@@ -1,5 +1,14 @@
 # Nhật ký thay đổi — IDC Harness
 
+## 1.1.1 — 2026-11-11
+
+### Sửa lỗi huỷ lịch trong chat và dọn tên gọi hiển thị
+- Sửa lỗi ra lệnh huỷ lịch/nhắc hẹn trong chat có lúc báo lỗi khó hiểu và không huỷ được gì: nếu bộ công cụ của phiên bị thiếu công cụ lịch (hay gặp ngay sau khi khởi động lại), hệ thống tự dò lại một lần bằng danh sách mới trước khi bỏ cuộc. Khi vẫn chưa huỷ được, thông báo nói rõ là chưa có gì bị huỷ và chỉ cách xử lý tiếp, không còn hiện tên kỹ thuật.
+- Dọn nốt chữ "Javis" còn sót trong các đoạn chữ hiển thị cho người dùng (mô tả plugin, thông báo, từ điển giao diện) thành "IDC Harness". Tên kỹ thuật bên trong (tên công cụ, thư mục dữ liệu, biến môi trường) giữ nguyên để hệ thống chạy ổn định, không ảnh hưởng dữ liệu hiện có.
+
+### Bạn cần làm sau khi cập nhật
+- Không cần làm gì thêm.
+
 ## 1.1.0 — 2026-11-11
 
 ### Cập nhật thông minh và chắc chắn hơn
