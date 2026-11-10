@@ -1,5 +1,15 @@
 # Nhật ký thay đổi — IDC Harness
 
+## 1.1.0 — 2026-11-11
+
+### Cập nhật thông minh và chắc chắn hơn
+- Claude Agent SDK (gói IDC Harness dùng để điều khiển Claude Code) giờ TỰ cập nhật mỗi ngày trong cùng dòng phiên bản: chỉ lấy bản đã phát hành ít nhất ba ngày, cài xong chạy thử kiểm chứng, lỗi thì tự quay về bản cũ. Bản này cũng nâng SDK qua mốc đã vá lỗ hổng bảo mật CVE-2026-96620.
+- Sau khi cập nhật và khởi động lại, dashboard mở lại đúng brain anh đang chọn, không còn nguy cơ rớt về brain mặc định như trước.
+- Bấm Cập nhật lúc đang có một lượt cập nhật khác: thông báo giờ nói rõ đang ở bước nào, còn khoảng bao lâu thì bấm lại được, kèm nhật ký cập nhật mới nhất để biết nó đang chạy thật hay đã treo.
+
+### Bạn cần làm sau khi cập nhật
+- Không cần làm gì thêm. Riêng máy nào vẫn đang ở bản cũ mà nút Cập nhật từng bị treo: cập nhật thủ công một lần bằng git pull như hướng dẫn ở bản 1.0.2, từ bản sau dùng nút bình thường.
+
 ## 1.0.3 — 2026-11-11
 
 ### Bot trong nhóm trực: /stop đúng người và chống treo lượt
