@@ -1,5 +1,15 @@
 # Nhật ký thay đổi — IDC Harness
 
+## 1.0.2 — 2026-11-11
+
+### Sửa lỗi cập nhật
+- Sửa lỗi nút "Cập nhật ngay" bị treo ở bước dừng server trên Windows: quá trình cập nhật nay tự dừng và khởi động lại gọn gàng, không còn đứng im không báo lỗi.
+- Mọi bước cập nhật đều có giới hạn thời gian chờ — nếu mạng hoặc một bước nào đó bị kẹt, hệ thống báo lỗi rõ ràng thay vì treo vô hạn.
+
+### Bạn cần làm sau khi cập nhật
+- Nếu nút Cập nhật trên máy bạn vẫn chạy tốt, cứ bấm cập nhật như thường.
+- Nếu nút Cập nhật từng bị treo (màn hình cập nhật đứng im nhiều phút), lần này hãy cập nhật thủ công một lần: tắt IDC Harness, mở thư mục cài đặt, mở cửa sổ lệnh tại đó và chạy `git pull`, rồi mở lại chương trình. Từ các bản sau, nút Cập nhật sẽ hoạt động bình thường.
+
 ## 1.0.1 — 2026-11-11
 
 ### Bot Telegram nhanh và chuẩn hơn

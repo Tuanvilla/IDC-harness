@@ -59,10 +59,21 @@ def log(msg):
         pass
 
 
-def run(cmd):
+def run(cmd, timeout_s=300):
     log("$ " + " ".join(cmd))
-    r = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True,
-                       creationflags=_CAM)
+    env = dict(os.environ)
+    # Updater chạy ngầm, không có ai trả lời hộ: git thiếu quyền thì phải LỖI NGAY,
+    # không được treo chờ một cửa sổ hỏi đăng nhập vô hình.
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    try:
+        r = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True,
+                           creationflags=_CAM, timeout=timeout_s, env=env)
+    except subprocess.TimeoutExpired:
+        # Không timeout là cả lượt cập nhật treo vô hạn (đã dính với stop-idc.bat):
+        # quá hạn thì coi như lỗi để luồng chính còn đường xử lý/rollback.
+        log(_chu(f"  (timeout {timeout_s}s) Lệnh chạy quá lâu, coi như lỗi để đi tiếp.",
+                 f"  (timeout {timeout_s}s) Command ran too long; treating it as failed and moving on."))
+        return subprocess.CompletedProcess(cmd, 124, "", f"timeout after {timeout_s}s")
     if r.returncode != 0:
         log(f"  (rc={r.returncode}) " + (r.stderr or r.stdout or "").strip()[:500])
     return r
@@ -187,16 +198,65 @@ def _unit_main_pid(service_name):
     return int(v) if v.isdigit() else 0
 
 
+def _win_pids_on_port(port):
+    """PID đang nghe trên cổng (Windows) bằng `netstat -ano` - KHÔNG dùng
+    Get-NetTCPConnection: cmdlet CIM đó có lúc treo nhiều phút trong phiên chạy
+    ngầm (updater đã kẹt đúng ở đó, log dừng ở lệnh stop-idc.bat). Trần 15s."""
+    if not port:
+        return []
+    try:
+        r = subprocess.run(["netstat", "-ano"], capture_output=True, text=True,
+                           creationflags=_CAM, timeout=15)
+    except Exception:
+        return []
+    pids, suffix = [], f":{port}"
+    for line in (r.stdout or "").splitlines():
+        parts = line.split()
+        if len(parts) >= 5 and parts[0].upper() == "TCP" and parts[1].endswith(suffix) \
+                and parts[3].upper() == "LISTENING" and parts[4].isdigit():
+            pid = int(parts[4])
+            if pid and pid != os.getpid() and pid not in pids:
+                pids.append(pid)
+    return pids
+
+
+def _stop_windows(server_pid=0, port=""):
+    """Dừng server Windows BẰNG PID, ngay trong updater - không qua stop-idc.bat/
+    stop-idc.ps1 nữa: script đó dành cho người chạy tay, bước dò cổng của nó có thể
+    treo, và bước 2 của nó tắt MỌI python chạy từ thư mục cài đặt - gồm cả CHÍNH
+    updater (tự giết mình giữa chừng, sau khi server đã tắt).
+    Giết đúng PID server + PID đang nghe cổng, KHÔNG giết theo cây tiến trình
+    (updater là con của server: giết cây là tự sát), rồi chờ cổng trống."""
+    targets = []
+    for pid in [server_pid] + _win_pids_on_port(port):
+        if pid and pid != os.getpid() and pid not in targets:
+            targets.append(pid)
+    if not targets:
+        log("Không tìm thấy tiến trình server để dừng (có thể đã tắt).")
+        return
+    for pid in targets:
+        log(f"Dừng PID {pid}…")
+        _kill_pid(pid)
+    deadline = time.time() + 20
+    while port and time.time() < deadline:
+        con = _win_pids_on_port(port)
+        if not con:
+            return
+        for pid in con:
+            _kill_pid(pid)
+        time.sleep(0.5)
+
+
 def stop_server(mode, server_pid=0, port=""):
     if mode == "systemd-signal":
         # No right to stop a system unit as a normal user: the old server keeps serving while the release is merged
         # and installed; start_server swaps it by signal and systemd's Restart= brings up the new code.
         log("Không có quyền dừng service hệ thống: server cũ chạy tiếp tới bước khởi động lại.")
     elif mode == "windows":
-        run(["cmd", "/c", str(ROOT / "stop-idc.bat")])
+        _stop_windows(server_pid, port)
     elif mode == "systemd":
         subprocess.run(["systemctl", "stop", systemd_service_name()], capture_output=True, text=True,
-                       creationflags=_CAM)
+                       creationflags=_CAM, timeout=60)
     elif mode == "launchd":
         # CỐ Ý không dừng gì: kill lúc này thì KeepAlive respawn ngay và bản respawn đó sẽ
         # giành cổng với bản mình bật sau. Server cũ cứ phục vụ tiếp trong lúc pull + pip
@@ -229,7 +289,7 @@ def start_server(mode, port=""):
                          cwd=str(ROOT), creationflags=0x00000008)  # DETACHED_PROCESS
     elif mode == "systemd":
         subprocess.run(["systemctl", "start", systemd_service_name()], capture_output=True, text=True,
-                       creationflags=_CAM)
+                       creationflags=_CAM, timeout=60)
     elif mode == "launchd":
         # kickstart -k: launchd tự hạ bản đang chạy rồi bật bản mới - MỘT người điều phối,
         # không còn cửa cho hai tiến trình cùng bind cổng.
