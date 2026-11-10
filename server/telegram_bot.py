@@ -28,7 +28,7 @@ import httpx
 
 import stt
 import localefmt
-from bot_gateway import HangLuot, dong_vet, ten_tool
+from bot_gateway import HangLuot, MAX_GIAY_LUOT_NHOM, dong_vet, ten_tool
 
 
 def parse_chat_ids(raw):
@@ -451,6 +451,32 @@ class TelegramBot(HangLuot):
             await client.post(self._url("setMessageReaction"), json={
                 "chat_id": chat, "message_id": int(mid),
                 "reaction": [{"type": "emoji", "emoji": "👀"}]})
+        except Exception:
+            pass
+
+    def _la_chu(self, meta):
+        """Chủ bot = người dùng của ID ĐẦU TIÊN trong whitelist (chat riêng của chủ là
+        một số dương trùng user_id của chủ). ID âm là id nhóm, không phải người."""
+        if not self.chat_ids:
+            return False
+        first = str(self.chat_ids[0])
+        if not first or first.startswith("-"):
+            return False
+        return str((meta or {}).get("user_id") or "") == first
+
+    async def _bao_huy_luot(self, client, chat, meta, ly_do):
+        """Lượt của một người trong nhóm bị huỷ hộ vì chạy quá lâu: báo NGAY cho chính
+        người đó bằng reply vào tin hỏi của họ, gọi tên như câu trả lời thường. Lỗi thì
+        nuốt im lặng như _bao_da_xep: báo huỷ chỉ là tín hiệu phụ."""
+        if ly_do != "timeout":
+            return
+        meta = meta or {}
+        ten = "@" + str(meta["username"]) if meta.get("username") else str(meta.get("user_name") or "")
+        phut = max(1, MAX_GIAY_LUOT_NHOM // 60)
+        text = (f"{ten} ⏰ Câu hỏi của bạn chạy quá {phut} phút mà chưa xong nên em đã dừng lượt này. "
+                "Bạn hỏi lại giúp em nhé.")
+        try:
+            await self._send(client, chat, text, reply_to=meta.get("message_id"))
         except Exception:
             pass
 

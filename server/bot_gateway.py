@@ -97,10 +97,16 @@ def parse_chat_ids(raw):
     return [str(x).strip() for x in items if str(x).strip()]
 
 
+def uid_nguoi(meta):
+    """Định danh người gửi trong meta của kênh (Telegram: user_id). Rỗng khi kênh không cấp."""
+    return str((meta or {}).get("user_id") or "")
+
+
 # ---- Hàng đợi lượt trả lời -----------------------------------------------------------
 MAX_CHO_TIN = 5         # trần số tin gom lại khi bot đang bận (chống spam làm phình bộ nhớ)
 MAX_CHO_KY_TU = 4000
 MAX_HANG_NHOM = 20      # trần hàng câu hỏi TỪNG NGƯỜI trong nhóm (mỗi câu một lượt riêng)
+MAX_GIAY_LUOT_NHOM = 180   # trần giây cho MỘT lượt hỏi trong nhóm: quá hạn thì coi như lượt treo, tự huỷ để nhường hàng cho người sau
 
 
 def noi_tin(texts):
@@ -145,6 +151,33 @@ class HangLuot:
             d = self.__dict__["_hang_nhom_d"] = {}
         return d
 
+    @property
+    def _chay_meta(self):
+        """chat -> meta của lượt ĐANG chạy: để biết lượt thuộc về ai khi /stop theo người."""
+        d = self.__dict__.get("_chay_meta_d")
+        if d is None:
+            d = self.__dict__["_chay_meta_d"] = {}
+        return d
+
+    @property
+    def _hen_gio(self):
+        """chat -> tay cầm hẹn giờ canh lượt treo (chỉ đặt cho câu hỏi nhóm)."""
+        d = self.__dict__.get("_hen_gio_d")
+        if d is None:
+            d = self.__dict__["_hen_gio_d"] = {}
+        return d
+
+    def _la_chu(self, meta):
+        """Người này có phải CHỦ bot không (kênh ghi đè theo whitelist của nó; mặc định
+        không). /stop của chủ giữ quyền dừng toàn bộ như cũ; /stop của thành viên nhóm
+        chỉ đụng tới phần của chính họ."""
+        return False
+
+    async def _bao_huy_luot(self, client, chat, meta, ly_do):
+        """Báo cho người hỏi khi lượt của họ bị huỷ hộ (mặc định: im lặng). Kênh ghi đè
+        để báo đúng người, đúng tin hỏi. ly_do hiện có: "timeout"."""
+        return None
+
     def _la_cau_hoi_nhom(self, meta):
         """Tin này có phải câu hỏi trong NHÓM của bot chủ không. Bot chuyên trách (chế độ
         người thật) giữ nguyên cách gom tin cũ; chat riêng của chủ giữ steer."""
@@ -165,6 +198,10 @@ class HangLuot:
             arg = head[1].strip() if len(head) > 1 else ""
             # /stop xử lý NGAY - CHỈ dừng lượt của CHÍNH chat này (không đụng phiên người khác)
             if cmd == "stop":
+                if self._la_cau_hoi_nhom(meta) and not self._la_chu(meta):
+                    # Trong nhóm mà không phải chủ: /stop chỉ đụng phần của người ra lệnh.
+                    await self._stop_theo_nguoi(client, chat, meta)
+                    return
                 t = self._current.get(chat)
                 if t and not t.done():
                     t.cancel()
@@ -227,6 +264,38 @@ class HangLuot:
                 await self._steer(client, chat, text, meta)
             return
         self._chay_luot(client, chat, text, meta)
+
+    async def _stop_theo_nguoi(self, client, chat, meta):
+        """Luật anh chốt 2026-11-11: /stop trong nhóm CHỈ đụng phần của người ra lệnh.
+        Lượt đang chạy là của họ thì huỷ đúng lượt đó (kèm command_fn stop như đường cũ
+        để giết subprocess engine của chat); câu đang xếp hàng của họ thì gỡ đúng câu
+        của họ. Lượt và hàng của người khác không suy suyển, và khi lượt của họ bị huỷ
+        thì hàng vẫn chạy tiếp cho người kế tiếp (xem _xong_luot)."""
+        nguoi = uid_nguoi(meta)
+        t = self._current.get(chat)
+        huy_luot = bool(t and not t.done() and nguoi
+                        and uid_nguoi(self._chay_meta.get(chat)) == nguoi)
+        if huy_luot:
+            t.cancel()
+            steer_inbox.INBOX.drop(self._steer_sid(chat))
+        hang = self._hang_nhom.get(chat) or []
+        con = [m for m in hang if uid_nguoi(m.get("meta")) != nguoi]
+        da_bo = len(hang) - len(con)
+        if con:
+            self._hang_nhom[chat] = con
+        else:
+            self._hang_nhom.pop(chat, None)
+        if huy_luot:
+            res = await self.command_fn("stop", "", chat, meta) if self.command_fn else None
+            await self._send(client, chat, (res or {}).get("reply", "⏹ Đã dừng."))
+        elif da_bo:
+            await self._send(client, chat, localefmt.chu(
+                f"⏹ Đã huỷ {da_bo} câu đang chờ của bạn.",
+                f"⏹ Removed {da_bo} of your queued questions."))
+        else:
+            await self._send(client, chat, localefmt.chu(
+                "Bạn không có yêu cầu nào đang chạy hay đang chờ.",
+                "You have no request running or queued."))
 
     def _xep_hang(self, chat, text, meta=None):
         """Gom tin đến trong lúc bận, trả lời một thể khi lượt hiện tại xong.
@@ -301,17 +370,53 @@ class HangLuot:
     def _chay_luot(self, client, chat, text, meta=None):
         task = asyncio.create_task(self._turn(client, chat, text, meta))
         self._current[chat] = task
+        self._chay_meta[chat] = meta
+        self._dat_hen_gio(client, chat, task, meta)
         task.add_done_callback(lambda t, c=chat: self._xong_luot(client, c, t))
+
+    def _dat_hen_gio(self, client, chat, task, meta):
+        """Canh lượt treo cho câu hỏi nhóm: một lượt chạy quá MAX_GIAY_LUOT_NHOM mà
+        chưa xong thì coi như treo, tự huỷ để hàng người sau không chết đứng theo.
+        Chat riêng và bot chuyên trách không đặt hẹn (luật riêng của chúng nó)."""
+        cu = self._hen_gio.pop(chat, None)
+        if cu is not None:
+            cu.cancel()
+        if not self._la_cau_hoi_nhom(meta):
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        self._hen_gio[chat] = loop.call_later(
+            MAX_GIAY_LUOT_NHOM, self._het_gio, client, chat, task, meta)
+
+    def _het_gio(self, client, chat, task, meta):
+        if self._current.get(chat) is not task or task.done():
+            return
+        print(f"[bot gateway] lượt nhóm quá {MAX_GIAY_LUOT_NHOM}s, tự huỷ để nhường hàng (chat {chat})",
+              file=sys.stderr)
+        task.cancel()
+        try:
+            asyncio.ensure_future(self._bao_huy_luot(client, chat, meta, "timeout"))
+        except RuntimeError:
+            pass
 
     def _xong_luot(self, client, chat, task):
         """Dọn task đã xong (tránh phình theo thời gian) rồi chạy nốt phần đang xếp hàng."""
         if self._current.get(chat) is task:
             self._current.pop(chat, None)
+            self._chay_meta.pop(chat, None)
+        hen = self._hen_gio.pop(chat, None)
+        if hen is not None:
+            hen.cancel()
         cho = self._cho.pop(chat, None)
-        # Bị /stop cắt ngang thì bỏ luôn hàng chờ: người ta bảo dừng chứ không bảo trả lời tiếp.
-        if task.cancelled() or self._stop:
+        # Kênh đang tắt hẳn thì bỏ hàng chờ, không chạy tiếp lượt nào nữa.
+        if self._stop:
             self._hang_nhom.pop(chat, None)
             return
+        # Lượt bị huỷ (dừng theo người / hết giờ / chủ dừng giữa chừng): KHÔNG tự xoá
+        # hàng ở đây. Phía ra lệnh huỷ đã gỡ đúng phần cần gỡ ngay tại _dispatch; hàng
+        # của người khác phải chạy tiếp, nhất là khi lượt trước bị treo.
         # Hàng câu hỏi từng người của nhóm chạy TRƯỚC phần gom chung: mỗi câu một lượt
         # riêng theo đúng thứ tự gọi. Hết hàng này mới tới lượt gom (nếu có).
         hang = self._hang_nhom.get(chat)

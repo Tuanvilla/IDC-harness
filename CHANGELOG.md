@@ -1,5 +1,15 @@
 # Nhật ký thay đổi — IDC Harness
 
+## 1.0.3 — 2026-11-11
+
+### Bot trong nhóm trực: /stop đúng người và chống treo lượt
+- Lệnh /stop giờ chỉ dừng đúng yêu cầu của người gõ lệnh: không còn làm hỏng câu hỏi của người khác đang chạy hay đang chờ.
+- Chủ bot vẫn dùng /stop để dừng toàn bộ như trước.
+- Nếu một câu hỏi chạy quá 3 phút mà chưa xong, bot tự dừng lượt đó, báo cho người hỏi biết, rồi trả lời người tiếp theo — cả nhóm không còn bị một câu hỏi treo làm đứng theo.
+
+### Bạn cần làm sau khi cập nhật
+- Không cần làm gì thêm. Trong nhóm, ai muốn rút lại yêu cầu của mình chỉ cần gõ /stop.
+
 ## 1.0.2 — 2026-11-11
 
 ### Sửa lỗi cập nhật
