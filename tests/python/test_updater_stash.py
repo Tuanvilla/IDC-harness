@@ -74,6 +74,10 @@ def drive_update(health, restores):
         state.update(changes)
 
     def fake_run(command):
+        if command[:2] == ["git", "show"]:
+            # 1.3.0: updater đọc requirements của bản cũ để xét bỏ qua pip. Giả lập
+            # đọc không được -> KHÔNG bỏ qua, pip_install (đã giả) chạy như cũ.
+            return SimpleNamespace(returncode=1, stdout="", stderr="")
         assert command[:2] == ["git", "reset"], command
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 

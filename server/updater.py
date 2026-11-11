@@ -4,7 +4,8 @@ Server spawn DETACHED:
 
     python updater.py --old-sha <sha> --old-version <v> --target <v> --port <p> --server-pid <pid>
 
-Chuỗi: stop server -> fetch/merge bản phát hành (stash nếu cây bẩn) -> pip -> start -> health.
+Chuỗi: fetch/merge bản phát hành (stash nếu cây bẩn) -> stop server -> pip (bỏ qua
+nếu requirements.txt không đổi) -> start -> health.
 /health không lên → git reset --hard <old-sha> -> pip -> start (rollback tự động).
 4 chế độ restart (service_mode): windows (bat/vbs), systemd (systemctl), launchd (Mac có
 job KeepAlive: KHÔNG kill PID mà `launchctl kickstart -k` - xem has_launchd_job), nohup
@@ -479,6 +480,30 @@ def pip_install():
     return r
 
 
+def _requirements_o(sha):
+    """Nội dung requirements.txt tại một commit; None nếu không đọc được."""
+    if not sha:
+        return None
+    r = run(["git", "show", f"{sha}:requirements.txt"])
+    return (r.stdout or "") if r.returncode == 0 else None
+
+
+def pip_can_bo_qua(old_sha):
+    """True CHỈ KHI chứng minh được requirements.txt của bản cũ và của bản vừa gộp
+    GIỐNG HỆT nhau. Cập nhật không đổi thư viện mà vẫn chạy pip là phí cả phút máy
+    và thêm một đường lỗi vô ích (tối ưu 1.3.0). Mọi mơ hồ - thiếu sha cũ, git show
+    lỗi, đọc file mới không được - đều rơi về False, tức là cứ cài như cũ: thà chậm
+    một lần còn hơn để server mới thiếu thư viện."""
+    cu = _requirements_o(old_sha)
+    if cu is None:
+        return False
+    try:
+        moi = (ROOT / "requirements.txt").read_text(encoding="utf-8")
+    except Exception:
+        return False
+    return cu.replace("\r\n", "\n") == moi.replace("\r\n", "\n")
+
+
 def _head_hien_tai() -> str:
     return (run(["git", "rev-parse", "HEAD"]).stdout or "").strip()
 
@@ -500,7 +525,7 @@ def poll_health(port, timeout_s=90):
                     return True
         except Exception:
             pass
-        time.sleep(3)
+        time.sleep(1)
     return False
 
 
@@ -606,8 +631,8 @@ def main():
 
     if a.dry_run:
         remote, branch = release_source()
-        print(f"PLAN: stop -> fetch({remote}/{branch}) + merge(stash nếu bẩn) "
-              f"-> pip -> start -> health({a.port}) "
+        print(f"PLAN: fetch({remote}/{branch}) + merge(stash nếu bẩn) -> stop "
+              f"-> pip (bỏ qua nếu requirements không đổi) -> start -> health({a.port}) "
               f"-> rollback(reset {a.old_sha or '?'}) nếu không lên")
         return 0
 
@@ -624,18 +649,16 @@ def main():
 
     log(f"Chế độ restart: {mode}")
 
-    log("Dừng server cũ…")
-    stop_server(mode, a.server_pid, a.port)
-    time.sleep(2)
-
+    # 1.3.0: TẢI + GỘP MÃ TRƯỚC, DỪNG SERVER SAU (như chế độ launchd vẫn làm). Trước
+    # đây server dừng ngay từ đầu nên mọi phút fetch/gộp/chờ mạng đều là thời gian
+    # chết của hệ thống. Lỗi ở pha này giờ cũng lành hơn: server cũ chưa từng bị
+    # dừng nên không cần bật lại để cứu. pip vẫn chạy SAU khi dừng - trên Windows
+    # thư viện đang nạp bị khoá file, cài đè giữa lúc server còn chạy là tự gây lỗi.
     us.write_state({"phase": "pulling"})
     stash_oid, stash_error = stash_local_changes()
     if stash_error:
         log(stash_error)
-        start_server(mode, a.port)
-        them = "" if poll_health(a.port, 60) else _chu(" Server cũ chưa lên lại.",
-                                                        " The old server has not come back up.")
-        us.write_state({"phase": "error", "result": "error", "error": stash_error + them,
+        us.write_state({"phase": "error", "result": "error", "error": stash_error,
                         "finished_at": _now()})
         return 1
     if stash_oid:
@@ -672,20 +695,23 @@ def main():
                                   f"trong git stash: {restore_error}",
                                   f" Could not restore your changes; the copy {stash_oid[:12]} is still "
                                   f"in git stash: {restore_error}")
-        # Merge đã hủy hoặc fetch thất bại; xác nhận server cũ thật sự lên lại.
-        start_server(mode, a.port)
-        them = "" if poll_health(a.port, 60) else _chu(
-            " Server cũ CŨNG chưa lên lại - mở IDC Harness bằng tay để chạy tiếp.",
-            " The old server has NOT come back up either - start IDC Harness by hand to continue.")
+        # Merge đã hủy hoặc fetch thất bại. Server cũ CHƯA HỀ bị dừng (1.3.0) nên
+        # không cần bật lại: nó vẫn đang phục vụ bản cũ nguyên vẹn.
         ly_do = chan_doan_pull_hong(git_error, merge_aborted=tree_safe)
         log("Chẩn đoán: " + (ly_do or "(không nhận ra nguyên nhân quen thuộc)"))
         tho = (git_error or _chu("Không hợp nhất được bản phát hành", "Could not merge the release")).strip()
         us.write_state({"phase": "error", "result": "pull_failed",
                         "error": ((ly_do + _chu(" (chi tiết trong update.log)", " (details in update.log)"))
                                   if ly_do else tho[:400])
-                                 + stash_note + them,
+                                 + stash_note,
                         "finished_at": _now()})
         return 1
+
+    # Mã mới đã nằm trên đĩa. Giờ mới đổi ca: dừng server cũ, áp lại sửa đổi cục
+    # bộ, cài thư viện (chỉ khi cần), bật bản mới.
+    log("Dừng server cũ…")
+    stop_server(mode, a.server_pid, a.port)
+    time.sleep(2)
 
     stash_restored = False
     stash_note = ""
@@ -701,8 +727,13 @@ def main():
             log(stash_note)
 
     us.write_state({"phase": "installing"})
-    log("Cài thư viện…")
-    pip_moi = pip_install()
+    pip_bo_qua = pip_can_bo_qua(a.old_sha)
+    if pip_bo_qua:
+        log("requirements.txt giống hệt bản cũ → bỏ qua bước cài thư viện.")
+        pip_moi = subprocess.CompletedProcess(["pip", "install"], 0, "", "")
+    else:
+        log("Cài thư viện…")
+        pip_moi = pip_install()
 
     us.write_state({"phase": "restarting"})
     log("Khởi động bản mới…")
@@ -788,7 +819,11 @@ def main():
             stash_note = _chu(f"Bản sao sửa đổi {stash_oid[:12]} vẫn trong git stash.",
                               f"The copy of your changes {stash_oid[:12]} is still in git stash.")
 
-    if pip_install().returncode != 0:
+    if pip_bo_qua:
+        # Đã chứng minh ở pha cài đặt: hai bản dùng CHUNG một requirements.txt,
+        # nên môi trường thư viện hiện tại vẫn đúng cho bản cũ - khỏi cài lại.
+        log("Hai bản dùng chung requirements.txt → rollback cũng bỏ qua cài lại thư viện.")
+    elif pip_install().returncode != 0:
         hong.append(_chu("cài lại thư viện cho bản cũ thất bại - kiểm tra mạng rồi chạy lại: "
                          "pip install -r requirements.txt",
                          "reinstalling libraries for the old version failed - check the network, then run: "

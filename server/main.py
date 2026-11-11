@@ -4898,6 +4898,40 @@ async def _soan_thong_bao_ban_moi(cur: str, latest: str) -> str:
     return "\n".join(dong)
 
 
+def _tai_truoc_ban_moi():
+    """Tải TRƯỚC dữ liệu của bản mới về máy (1.3.0), chạy trong thread riêng.
+
+    Hai việc: `git fetch` (chỉ nạp object vào .git, không đụng cây mã đang chạy) và -
+    nếu requirements.txt của bản mới khác bản đang chạy - tải sẵn các gói thư viện
+    vào cache của pip. Nhờ vậy lúc chủ bấm Cập nhật, pha tải coi như đã xong: updater
+    chỉ còn gộp mã, đổi ca và kiểm tra sức khoẻ. Nuốt mọi lỗi: tải trước hỏng thì
+    lượt cập nhật vẫn đi đường cũ, chỉ là chậm như trước."""
+    import subprocess
+    try:
+        if not (PROJECT_ROOT / ".git").exists():
+            return
+        env = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+        r = subprocess.run(
+            ["git", "fetch", "https://github.com/Tuanvilla/IDC-harness.git", "main"],
+            cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=180, env=env)
+        if r.returncode != 0:
+            return
+        cu = subprocess.run(["git", "show", "HEAD:requirements.txt"],
+                            cwd=str(PROJECT_ROOT), capture_output=True, text=True,
+                            timeout=30, env=env)
+        moi = subprocess.run(["git", "show", "FETCH_HEAD:requirements.txt"],
+                             cwd=str(PROJECT_ROOT), capture_output=True, text=True,
+                             timeout=30, env=env)
+        if cu.returncode == 0 and moi.returncode == 0 and (cu.stdout or "") != (moi.stdout or ""):
+            tmp = cfgmod.STATE_DIR / "requirements-ban-moi.txt"
+            tmp.write_text(moi.stdout or "", encoding="utf-8")
+            subprocess.run([sys.executable, "-m", "pip", "download", "-r", str(tmp), "-q"],
+                           cwd=str(PROJECT_ROOT), capture_output=True, text=True,
+                           timeout=600, env=env)
+    except Exception:
+        pass
+
+
 @app.on_event("startup")
 async def _tu_bao_ban_moi():
     """Vòng nền báo BẢN MỚI cho chủ: 30 phút dò một lần, mỗi phiên bản chỉ báo MỘT lần.
@@ -4906,7 +4940,9 @@ async def _tu_bao_ban_moi():
     Cập nhật - bản mới ra mà chủ không mở trang thì không ai hay. Vòng này khép khoảng
     đó bằng chính đường báo cáo của hệ (_notify_owner kind="system": vào hòm thư và
     Telegram của chủ), và ghi nhớ bản đã báo vào file trạng thái để khởi động lại
-    không báo trùng; đã báo mà chủ chưa cập nhật thì cũng không nhắc lại."""
+    không báo trùng; đã báo mà chủ chưa cập nhật thì cũng không nhắc lại. Từ 1.3.0
+    vòng này còn TẢI TRƯỚC dữ liệu bản mới (mỗi phiên bản một lần, xem
+    `_tai_truoc_ban_moi`) để lượt cập nhật khi chủ bấm nút ngắn lại."""
     def _da_bao():
         try:
             d = json.loads((cfgmod.STATE_DIR / "update-notify.json").read_text(encoding="utf-8"))
@@ -4923,23 +4959,28 @@ async def _tu_bao_ban_moi():
             pass
 
     async def _vong():
+        da_tai_truoc = ""
         await asyncio.sleep(180)
         while True:
             try:
                 cur = _read_version()
                 latest, err = await _latest_remote_version(cur)
-                if latest and not err and _ver_newer(latest, cur) and _da_bao() != latest:
-                    text = await _soan_thong_bao_ban_moi(cur, latest)
-                    ok, nerr = await _notify_owner(
-                        "", text, kind="system", label="Cập nhật IDC Harness",
-                        source="update_check", dedup=f"update-available:{latest}",
-                        ngan=f"🆕 IDC Harness có bản mới v{latest} (đang chạy v{cur}). "
-                             "Mở dashboard, mục Cập nhật để lên bản mới.")
-                    if ok:
-                        _ghi_da_bao(latest)
-                    else:
-                        print(f"[update notify] báo bản {latest} chưa tới được chủ: {nerr}",
-                              file=sys.stderr)
+                if latest and not err and _ver_newer(latest, cur):
+                    if da_tai_truoc != latest:
+                        da_tai_truoc = latest
+                        await asyncio.to_thread(_tai_truoc_ban_moi)
+                    if _da_bao() != latest:
+                        text = await _soan_thong_bao_ban_moi(cur, latest)
+                        ok, nerr = await _notify_owner(
+                            "", text, kind="system", label="Cập nhật IDC Harness",
+                            source="update_check", dedup=f"update-available:{latest}",
+                            ngan=f"🆕 IDC Harness có bản mới v{latest} (đang chạy v{cur}). "
+                                 "Mở dashboard, mục Cập nhật để lên bản mới.")
+                        if ok:
+                            _ghi_da_bao(latest)
+                        else:
+                            print(f"[update notify] báo bản {latest} chưa tới được chủ: {nerr}",
+                                  file=sys.stderr)
             except Exception as e:
                 print(f"[update notify] vòng dò bản mới lỗi: {type(e).__name__}: {e}",
                       file=sys.stderr)

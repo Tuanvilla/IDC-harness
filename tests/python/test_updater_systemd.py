@@ -152,6 +152,9 @@ if hasattr(os, "getuid"):
 
     modes = []
     with patch.object(updater, "service_mode", lambda *x, **k: "systemd"), \
+            patch.object(updater, "stash_local_changes", lambda: ("", "")), \
+            patch.object(updater, "merge_release",
+                         lambda: (SimpleNamespace(returncode=0, stdout="", stderr=""), True)), \
             patch.object(updater, "stop_server", lambda m, *x, **k: modes.append(m) or (_ for _ in ()).throw(SystemExit(7))), \
             patch.object(sys, "argv", ["updater.py", "--old-sha", "abc", "--port", "7777",
                                        "--systemd-worker", "--restart-by-signal"]):
