@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ============================================================================
-# Javis OS - container image
+# IDC Harness - container image
 # "Brain" = Claude Code CLI (npm global). FastAPI app served by uvicorn.
 # Code tree is immutable; ALL mutable state lives on the /data volume and the
 # Claude auth volume (~/.claude). Node comes from the official image (Debian's
@@ -19,14 +19,14 @@ FROM python:3.12-slim
 
 # OCI image labels: Docker Manager (Hostinger) + registry đọc để hiện cột "Guide"
 # (Documentation / Quick start / Source). Trỏ về docs trên GitHub.
-LABEL org.opencontainers.image.title="Javis OS" \
-      org.opencontainers.image.description="AI operating layer: chat + voice + second brain + tự động hoá, xây trên CLI của nhà cung cấp AI (Claude Code, ChatGPT/Codex)." \
-      org.opencontainers.image.url="https://github.com/blogminhquy/javis-os" \
-      org.opencontainers.image.source="https://github.com/blogminhquy/javis-os" \
-      org.opencontainers.image.documentation="https://github.com/blogminhquy/javis-os/blob/main/docs/README.md" \
+LABEL org.opencontainers.image.title="IDC Harness" \
+      org.opencontainers.image.description="Trợ lý vận hành trung tâm dữ liệu (IDC): hỏi đáp SOP/sự cố qua Telegram ở chế độ chỉ đọc, quản trị và cấu hình trên dashboard, xây trên CLI của nhà cung cấp AI (Claude Code, ChatGPT/Codex)." \
+      org.opencontainers.image.url="https://github.com/Tuanvilla/IDC-harness" \
+      org.opencontainers.image.source="https://github.com/Tuanvilla/IDC-harness" \
+      org.opencontainers.image.documentation="https://github.com/Tuanvilla/IDC-harness" \
       org.opencontainers.image.licenses="MIT" \
-      com.hostinger.documentation="https://github.com/blogminhquy/javis-os/blob/main/docs/README.md" \
-      com.hostinger.quickstart="https://github.com/blogminhquy/javis-os/blob/main/QUICKSTART.md"
+      com.hostinger.documentation="https://github.com/Tuanvilla/IDC-harness" \
+      com.hostinger.quickstart="https://github.com/Tuanvilla/IDC-harness"
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

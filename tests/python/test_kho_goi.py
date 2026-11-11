@@ -144,7 +144,11 @@ def gia_tai(noi_dung=None, loi=None):
 
 with tempfile.TemporaryDirectory() as td:
     goc_cache, goc_tai = packs_store.CACHE, packs_fetch.tai
+    goc_kho = packs_store.STORE_MAC_DINH
     packs_store.CACHE = Path(td) / "packs-store-cache.json"
+    # Từ 1.2.1 bản cài mới KHÔNG có kho mặc định (xem khẳng định chính sách ở cuối tệp);
+    # khối giả lập này cần một kho để chạy, nên nó tự khai một kho giả rồi trả lại sau.
+    packs_store.STORE_MAC_DINH = "https://kho-idc.example/index.json"
     try:
         packs_fetch.tai = gia_tai(INDEX_TOT)
         d = asyncio.run(packs_store.lay(lam_moi=True))
@@ -193,6 +197,7 @@ with tempfile.TemporaryDirectory() as td:
                   r["ok"] is False and (not dau or dau in r.get("error", "")))
     finally:
         packs_store.CACHE, packs_fetch.tai = goc_cache, goc_tai
+        packs_store.STORE_MAC_DINH = goc_kho
 
 # ─────────────── 5. Canary trên mã nguồn ───────────────
 src = (SERVER / "packs_fetch.py").read_text(encoding="utf-8")
@@ -241,12 +246,17 @@ check("kho hỏng KHÔNG làm hỏng phần gói đã cài",
 # Kho ở REPO RIÊNG, và bản cũ vẫn cài được
 # ============================================================
 # Tách repo là điểm mấu chốt: thêm một gói không còn dính tới việc ra bản mới của app, và người
-# lạ gửi Pull Request vào kho được mà không cần quyền ghi vào mã nguồn Javis.
-check("kho mặc định trỏ sang repo riêng, không phải repo Javis OS",
-      "javis-store" in packs_store.STORE_MAC_DINH
-      and "javis-os" not in packs_store.STORE_MAC_DINH)
-check("và đọc qua raw.githubusercontent (không phải trang HTML của GitHub)",
-      packs_store.STORE_MAC_DINH.startswith("https://raw.githubusercontent.com/"))
+# lạ gửi Pull Request vào kho được mà không cần quyền ghi vào mã nguồn của app.
+# ĐỔI Ở IDC Harness 1.2.1: gói là code chạy trên máy nên bản cài mới KHÔNG tự nối vào
+# kho của bên thứ ba (bản gốc mặc định trỏ kho javis-store của dự án thượng nguồn).
+# Quản trị điền địa chỉ kho của mình trong Cài đặt; chưa điền thì tầng kho nằm im.
+check("kho mặc định KHÔNG trỏ đi đâu cả (không tự nối kho bên thứ ba)",
+      packs_store.STORE_MAC_DINH == "")
+check("chưa cấu hình kho thì url_kho() rỗng",
+      packs_store.url_kho() == "")
+_d0 = asyncio.run(packs_store.lay())
+check("chưa cấu hình kho: lay() trả rỗng kèm lời giải thích, không đi lấy tin",
+      _d0["ok"] is False and _d0["packs"] == [] and bool(_d0.get("error")))
 
 idx = json.loads((ROOT / "system" / "pack-index.json").read_text(encoding="utf-8"))
 check("repo có sẵn tệp danh mục", idx.get("format") == "javis-pack-index")

@@ -1,5 +1,17 @@
 # Nhật ký thay đổi — IDC Harness
 
+## 1.2.1 — 2026-11-11
+
+### Bảo mật
+- Bot Telegram chuyển sang chặn kiểu "chưa cho phép là không vào": trước đây nếu danh sách chat được phép (whitelist) bị để trống, bot sẽ trả lời MỌI người nhắn tới. Từ bản này, whitelist trống nghĩa là bot không trả lời ai cả. Danh sách đã điền sẵn thì dùng như cũ, không đổi gì.
+- Kho gói không còn tự nối vào kho của bên thứ ba ở bản cài mới. Gói là mã chạy trên máy nên từ nay quản trị muốn dùng kho nào thì tự điền địa chỉ kho đó; chưa điền thì mục kho để trống, cài gói từ tệp vẫn hoạt động bình thường.
+- Sửa đường dẫn báo lỗi bảo mật và nhãn thông tin bản Docker về đúng kho IDC Harness (trước đây còn trỏ sang kho của dự án gốc, dễ gửi nhầm).
+- Bổ sung kiểm thử tự động ghim chặt cam kết "Telegram chỉ đọc": mọi phiên Telegram đều bị giới hạn ở mức chỉ đọc và đề xuất, kiểm tra tự chạy mỗi lần sửa mã để không ai vô tình nới quyền về sau.
+
+### Bạn cần làm sau khi cập nhật
+- Kiểm tra nhanh trong Cài đặt: danh sách chat Telegram được phép phải có ít nhất ID của anh (và ID nhóm trực nếu dùng nhóm). Nếu để trống, bot sẽ im lặng với tất cả mọi người cho tới khi điền.
+- Nếu anh đang dùng Kho gói: điền địa chỉ kho của anh trong Cài đặt, mục Gói. Chưa dùng thì bỏ qua.
+
 ## 1.2.0 — 2026-11-11
 
 ### Báo bản mới chủ động

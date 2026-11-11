@@ -33,8 +33,12 @@ from bot_gateway import HangLuot, MAX_GIAY_LUOT_NHOM, dong_vet, ten_tool
 
 def parse_chat_ids(raw):
     """Chuẩn hoá whitelist chat_id: nhận chuỗi 'id1, id2 id3' (phẩy/chấm phẩy/khoảng trắng)
-    hoặc list → trả list str đã strip, bỏ trùng, giữ thứ tự. RỖNG = cho phép MỌI người
-    (giữ hành vi cũ). ID nhóm Telegram là số ÂM nên không ép kiểu/không lọc dấu '-'."""
+    hoặc list → trả list str đã strip, bỏ trùng, giữ thứ tự. ID nhóm Telegram là số ÂM
+    nên không ép kiểu/không lọc dấu '-'.
+
+    RỖNG = KHÔNG ai được dùng: từ 1.2.1 cổng chặn ở TelegramBot._duoc_dung theo kiểu
+    fail-closed (trước đây rỗng nghĩa là cho phép MỌI người - mặc định nguy hiểm cho
+    một hệ thống hạ tầng, cài xong quên điền whitelist là bot mở toang cho cả mạng)."""
     if raw is None:
         return []
     items = raw if isinstance(raw, (list, tuple)) else re.split(r"[,;\s]+", str(raw))
@@ -453,6 +457,12 @@ class TelegramBot(HangLuot):
                 "reaction": [{"type": "emoji", "emoji": "👀"}]})
         except Exception:
             pass
+
+    def _duoc_dung(self, chat):
+        """Cổng whitelist DUY NHẤT của bot Telegram (1.2.1): chat có nằm trong whitelist
+        hay không. Whitelist RỖNG = không ai được dùng (fail-closed) - trước đây hai cổng
+        viết kiểu `if self.chat_ids and ...` nên danh sách rỗng cho MỌI người vào."""
+        return str(chat) in self.chat_ids
 
     def _la_chu(self, meta):
         """Chủ bot = người dùng của ID ĐẦU TIÊN trong whitelist (chat riêng của chủ là
@@ -906,7 +916,7 @@ class TelegramBot(HangLuot):
                 print(f"[telegram deleteWebhook] {e}", file=sys.stderr)
             await self._hoi_danh_tinh(client)
             await self._day_menu_lenh(client)
-            print(f"[telegram] bot started (chat_id={','.join(self.chat_ids) or 'mọi người'})", file=sys.stderr)
+            print(f"[telegram] bot started (chat_id={','.join(self.chat_ids) or 'CHƯA CẤU HÌNH WHITELIST - không trả lời ai'})", file=sys.stderr)
             self.status = "polling"
             while not self._stop:
                 try:
@@ -945,7 +955,7 @@ class TelegramBot(HangLuot):
                         # Tin dịch vụ đi TRƯỚC whitelist: "bot vừa bị thả vào nhóm nào" là
                         # chuyện phải biết kể cả (nhất là) khi nhóm đó chưa được cho phép.
                         await self._bao_su_kien(msg)
-                        if self.chat_ids and chat not in self.chat_ids:
+                        if not self._duoc_dung(chat):
                             await self._send(client, chat, "Bạn không có quyền dùng bot IDC Harness này.")
                             continue
                         text = (msg.get("text") or "").strip()
@@ -978,7 +988,7 @@ class TelegramBot(HangLuot):
         msg = cq.get("message") or {}
         chat = str((msg.get("chat") or {}).get("id", ""))
         mid = msg.get("message_id")
-        if self.chat_ids and chat not in self.chat_ids:
+        if not self._duoc_dung(chat):
             try:
                 await client.post(self._url("answerCallbackQuery"),
                                   json={"callback_query_id": cq_id, "text": "Không có quyền"})

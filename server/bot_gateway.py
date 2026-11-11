@@ -87,7 +87,11 @@ def dong_vet(tools, giay) -> str:
 
 # ---- Whitelist -----------------------------------------------------------------------
 def parse_chat_ids(raw):
-    """"111, 222" hoặc [111, 222] -> ["111", "222"]. Rỗng = KHÔNG giới hạn ai."""
+    """"111, 222" hoặc [111, 222] -> ["111", "222"].
+
+    Hàm này chỉ CHUẨN HOÁ, không quyết định quyền: mỗi bot tự chặn ở cổng của mình.
+    Bot Telegram chặn fail-closed từ 1.2.1 (rỗng = không ai được dùng, xem
+    telegram_bot.TelegramBot._duoc_dung); bot Zalo của chủ vẫn giữ hành vi cũ."""
     if not raw:
         return []
     if isinstance(raw, (list, tuple, set)):

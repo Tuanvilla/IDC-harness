@@ -44,16 +44,15 @@ TTL = 6 * 3600
 FORMAT = "javis-pack-index"
 FORMAT_VERSION = 1
 
-# Kho mặc định. Người dùng đổi được trong Cài đặt, nên đây chỉ là điểm khởi đầu.
+# Kho mặc định: KHÔNG CÓ (đổi ở 1.2.1). Gói trong kho là CODE chạy trên máy, nên một
+# bản cài mới không được tự nối vào kho của bên thứ ba - kể cả kho của dự án gốc. Quản
+# trị muốn dùng kho nào (kho riêng của đơn vị là chuẩn) thì điền địa chỉ trong Cài đặt,
+# mục Gói (packs.store_url); để trống thì tầng kho im lặng, cài gói từ tệp vẫn chạy.
 #
-# Kho nằm ở REPO RIÊNG chứ không trong repo IDC Harness OS, và đó là điểm mấu chốt của cả tầng này:
-# thêm một gói vào kho không còn dính gì tới việc ra bản mới của app. Người phát hành đẩy một
-# commit vào `javis-store`, và mọi máy đang chạy IDC Harness thấy ngay ở lần làm mới danh mục kế tiếp.
-#
-# Tách repo còn mở được đường đóng góp: người lạ gửi Pull Request vào kho, chủ kho đọc mã rồi mới
-# trộn - mà không ai phải có quyền ghi vào mã nguồn IDC Harness.
-STORE_MAC_DINH = ("https://raw.githubusercontent.com/blogminhquy/javis-store/"
-                  "main/index.json")
+# Kho vẫn nằm ở REPO RIÊNG chứ không trong repo IDC Harness, và đó là điểm mấu chốt của
+# cả tầng này: thêm một gói vào kho không dính gì tới việc ra bản mới của app, và người
+# lạ gửi Pull Request vào kho được mà không cần quyền ghi vào mã nguồn IDC Harness.
+STORE_MAC_DINH = ""
 
 # Loại năng lực một mục trong kho mang lại. Đây là thứ chia lưới thành các tab "Trợ lý /
 # Kỹ năng / Quy trình / Công cụ", nên nó là trường quan trọng nhất về mặt trưng bày.
@@ -189,12 +188,22 @@ async def lay(lam_moi: bool = False) -> dict:
     không im lặng vẽ như thường: người dùng cần biết mình đang nhìn cái gì."""
     cache = _doc_cache()
     con_han = (time.time() - float(cache.get("fetched_at") or 0)) < TTL
-    if cache.get("packs") and con_han and not lam_moi:
+    u = url_kho()
+    # Cache chỉ dùng khi nó thuộc về ĐÚNG kho đang cấu hình: đổi địa chỉ kho (hoặc bỏ
+    # kho) mà vẫn vẽ danh mục của kho cũ là nói dối người dùng (1.2.1).
+    if u and cache.get("packs") and con_han and not lam_moi and (cache.get("url") or "") == u:
         return {"ok": True, "packs": cache["packs"], "store": cache.get("store") or {},
-                "stale": False, "fetched_at": cache.get("fetched_at"), "url": url_kho()}
+                "stale": False, "fetched_at": cache.get("fetched_at"), "url": u}
+
+    if not u:
+        return {"ok": False, "packs": [], "store": {}, "stale": False, "url": "",
+                "error": localefmt.chu(
+                    "Chưa cấu hình địa chỉ kho gói. Vào Cài đặt, mục Gói, điền địa chỉ kho của bạn; "
+                    "bạn vẫn cài được gói từ tệp.",
+                    "No pack store configured. Set your store address in Settings, Packs; "
+                    "you can still install packs from a file.")}
 
     import packs_fetch
-    u = url_kho()
     try:
         raw = await packs_fetch.tai(u, tran=4 * 1024 * 1024)
         d = json.loads(raw.decode("utf-8"))

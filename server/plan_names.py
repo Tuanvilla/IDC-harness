@@ -81,7 +81,10 @@ def url_danh_ba() -> str:
         return env.strip()
     try:
         import packs_store
-        return urljoin(packs_store.url_kho(), "plan-names.json")
+        u = packs_store.url_kho()
+        # Không có kho (mặc định từ 1.2.1) thì danh bạ tắt hẳn, thay vì urljoin ra một
+        # địa chỉ tương đối vô nghĩa rồi để tầng lấy tin tự vấp.
+        return urljoin(u, "plan-names.json") if u else ""
     except Exception:  # noqa: BLE001
         return ""
 
