@@ -1,5 +1,16 @@
 # Nhật ký thay đổi — IDC Harness
 
+## 1.3.0 — 2026-11-11
+
+### Cập nhật nhanh hơn hẳn
+- Lúc bấm Cập nhật, hệ giờ TẢI VÀ GỘP MÃ MỚI TRƯỚC trong lúc bản đang chạy vẫn phục vụ bình thường; chỉ tới khi mọi thứ sẵn sàng mới dừng để đổi sang bản mới. Thời gian hệ thống ngừng phục vụ co lại còn đúng đoạn đổi ca và khởi động lại.
+- Nếu bản mới không thay đổi danh sách thư viện, bước cài thư viện được BỎ QUA hoàn toàn thay vì chạy lại từ đầu như trước - đây vốn là bước ngốn thời gian nhất của mỗi lần cập nhật.
+- Ngay khi vòng dò bản mới phát hiện có bản mới (cơ chế ở 1.2.0), hệ âm thầm tải trước mã và thư viện cần thiết về máy. Tới lúc anh bấm Cập nhật, phần tải coi như đã xong.
+- Bước kiểm tra sức khoẻ sau khi bật bản mới cũng nhạy hơn: server lên là biết gần như ngay, không phải chờ thêm vài giây.
+
+### Bạn cần làm sau khi cập nhật
+- Không cần làm gì. Các lần cập nhật từ nay sẽ tự ngắn lại theo cách mới; riêng lần lên 1.3.0 này vẫn đi theo quy trình cũ một lần cuối.
+
 ## 1.2.1 — 2026-11-11
 
 ### Bảo mật
