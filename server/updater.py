@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 import time
+import traceback
 import urllib.request
 from pathlib import Path
 
@@ -614,7 +615,7 @@ def _launch_systemd_worker(a):
     return False
 
 
-def main():
+def _run_update():
     ap = argparse.ArgumentParser()
     ap.add_argument("--old-sha", default="")
     ap.add_argument("--old-version", default="")
@@ -869,6 +870,32 @@ def main():
                                       "server still does not start - most likely another process holds the port."))),
                     "finished_at": _now()})
     return 1
+
+
+def main():
+    """Điểm vào của updater: chạy _run_update, nhưng MỌI lỗi không xử lý được đều phải
+    ghi lại trạng thái lỗi rồi mới thoát, không bao giờ được chết trong im lặng khi
+    đang ở một phase 'đang dở'.
+
+    Bug thật 14/11/2026: lần cập nhật lên 1.4.1 xong việc (server đã lên 1.4.1 và chạy
+    khoẻ) nhưng update_state.json vẫn kẹt ở phase 'health_check', nút Cập nhật bị chặn
+    tới hết window 900 giây, vì main() cũ không có lưới an toàn nào: một exception
+    sau khi ghi phase health_check là tiến trình chết luôn, không ai ghi 'done'/'error'.
+    SystemExit/KeyboardInterrupt không bị bắt (chỉ bắt Exception)."""
+    try:
+        return _run_update()
+    except Exception as exc:  # noqa: BLE001 - lưới an toàn cuối cùng, cố ý bắt rộng
+        try:
+            log("Updater gặp lỗi không xử lý được:\n" + traceback.format_exc())
+        except Exception:
+            pass
+        try:
+            us.write_state({"phase": "error", "result": "error",
+                            "error": f"{type(exc).__name__}: {exc}"[:400],
+                            "finished_at": _now()})
+        except Exception:
+            pass
+        return 1
 
 
 if __name__ == "__main__":

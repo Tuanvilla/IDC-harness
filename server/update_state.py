@@ -57,6 +57,17 @@ def record_boot_version(current: str) -> dict:
     if last_good and last_good != current and ver_newer(current, last_good):
         patch["previous_version"] = last_good
     patch["last_good_version"] = current
+    # 1.4.3 tự lành: server đã boot lên ĐÚNG bản đích của lần cập nhật đang dở (vd. updater
+    # chết sau health_check ở lần lên 1.4.1 ngày 14/11/2026) thì lần cập nhật đó thực chất
+    # đã thành công, ghi done để nút Cập nhật mở lại ngay thay vì chờ hết window 900 giây.
+    # Chỉ lành khi bản đang chạy ĐÚNG target; chưa tới target thì để nguyên phase cho
+    # guard 900s xử lý. Không lành phase rolling_back (lùi bản đang dở là chuyện khác).
+    if (st.get("phase") in {"preparing", "pulling", "installing", "restarting", "health_check"}
+            and st.get("target_version") and current == st.get("target_version")):
+        from datetime import datetime
+        patch["phase"] = "done"
+        patch["result"] = "success"
+        patch["finished_at"] = datetime.now().isoformat(timespec="seconds")
     return write_state(patch)
 
 

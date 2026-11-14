@@ -369,6 +369,46 @@ check("release không render toàn bộ body trong card",
       'kind !== "update" && item.body' in _noti_js)
 check("nút chuông được dời lên header mobile", "origNotificationParent" in _mobile_js)
 
+# --- 1.4.3: updater chết giữa chừng không được để kẹt phase đang dở ---
+# Bug thật 14/11/2026: lần lên 1.4.1 để lại phase health_check dù server đã lên 1.4.1 khoẻ.
+from pathlib import Path as _Path143  # noqa: E402
+_us_dir143 = tempfile.mkdtemp(prefix="javis-update-143-")
+us.STATE_DIR = _Path143(_us_dir143)
+us.STATE_FILE = _Path143(_us_dir143) / "update_state.json"
+us.write_state({"phase": "health_check", "result": None, "error": None,
+                "old_version": "1.4.0", "target_version": "1.4.2",
+                "started_at": "2026-11-14T16:39:00", "finished_at": None})
+_goc_run143 = _updmod._run_update
+def _gay143():
+    raise RuntimeError("boom-giua-health-check")
+_updmod._run_update = _gay143
+try:
+    _rc143 = _updmod.main()
+finally:
+    _updmod._run_update = _goc_run143
+check("updater gặp lỗi không xử lý được -> thoát 1", _rc143 == 1)
+_st143 = us.read_state()
+check("... và ghi phase=error thay vì kẹt health_check", _st143.get("phase") == "error")
+check("... error ghi rõ loại lỗi", "RuntimeError" in (_st143.get("error") or ""))
+check("... finished_at được ghi", bool(_st143.get("finished_at")))
+
+# --- 1.4.3: boot tự lành khi server đã lên đúng bản đích ---
+us.write_state({"phase": "health_check", "result": None, "error": None,
+                "old_version": "1.4.1", "target_version": "1.4.2",
+                "started_at": "2026-11-14T16:39:00", "finished_at": None,
+                "last_good_version": "1.4.1"})
+us.record_boot_version("1.4.2")
+_st143 = us.read_state()
+check("boot lên đúng target -> phase done/success (tự lành)", _st143.get("phase") == "done" and _st143.get("result") == "success")
+check("... last_good cập nhật lên bản mới", _st143.get("last_good_version") == "1.4.2")
+us.write_state({"phase": "health_check", "result": None, "error": None,
+                "old_version": "1.4.1", "target_version": "1.4.2",
+                "started_at": "2026-11-14T16:39:00", "finished_at": None,
+                "last_good_version": "1.4.1"})
+us.record_boot_version("1.4.1")
+check("boot chưa tới target -> giữ nguyên phase health_check", us.read_state().get("phase") == "health_check")
+us.write_state({"phase": "idle", "result": None, "error": None})
+
 print()
 if _fails:
     print(f"{len(_fails)} FAIL: {_fails}"); sys.exit(1)
