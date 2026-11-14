@@ -14381,6 +14381,10 @@ async def _start_scheduler():
                 #      flag; hard daily caps live in auto_learning.
                 if not _AUTO_LEARNING_BUSY[0]:
                     asyncio.create_task(_auto_learning_tick())
+                # 3b6) Dream job (1.4.0): hop nhat ky phien thanh de xuat ghi nho, 1 lan/dem,
+                #      chi ghi vao kho de xuat rieng - khong bao gio ghi thang vao brain.
+                if not _DREAM_BUSY[0]:
+                    asyncio.create_task(_dream_tick())
                 # 3c) Ngân sách token + báo cáo tuần. Nhịp RIÊNG 10 phút chứ không theo 30s:
                 #     mỗi lượt kiểm là một truy vấn sqlite cả tháng, chạy 30 giây một lần thì
                 #     chính cái đồng hồ đo tiền lại thành thứ tốn tài nguyên nhất.
@@ -28190,6 +28194,7 @@ def _improvement_loop_runs():
 _AUTO_LEARNER = [None]
 _AUTO_LEARNER_LOCK = __import__("threading").Lock()
 _AUTO_LEARNING_BUSY = [False]
+_DREAM_BUSY = [False]
 
 
 def _auto_learning_policy_on(root):
@@ -28407,6 +28412,73 @@ async def _auto_learning_tick():
         _AUTO_LEARNING_BUSY[0] = False
 
 
+_DREAMER = [None]
+_DREAMER_LOCK = __import__("threading").Lock()
+
+
+def _dreamer():
+    """Dream job singleton: proposals go to its own SQLite store, never to the brain.
+    The job runs on the background model only (text-only), like auto-learning."""
+    with _DREAMER_LOCK:
+        if _DREAMER[0] is None:
+            import dream
+            state = Path(cfgmod.STATE_DIR) / "improvement"
+            host = dream.Host(
+                text_call=lambda system, prompt: _improvement_text_call(
+                    system, prompt, "dream-" + __import__("secrets").token_hex(4),
+                    _auto_learning_background_spec()),
+                sessions_reader=_dream_sessions,
+                brain_root=lambda brain: Path(_brain_root(brain)),
+                policy_on=_auto_learning_policy_on,
+                state_dir=Path(cfgmod.STATE_DIR),
+                backups=state / "dream-backups")
+            _DREAMER[0] = dream.Dreamer(dream.Store(state / "dream.sqlite3"), host)
+        return _DREAMER[0]
+
+
+def _dream_sessions(brain):
+    """Recent sessions of one brain for the dream digest: all channels, newest first."""
+    import dream as _dream_mod
+    store = get_store()
+    out = []
+    for s in store.list_sessions(limit=_dream_mod.MAX_SESSIONS, brain=brain, channel="*"):
+        sid = s.get("id")
+        if not sid:
+            continue
+        try:
+            out.append({"session_id": sid, "messages": store.get_messages(sid)})
+        except Exception:
+            continue
+    return out
+
+
+async def _dream_tick():
+    """Scheduler: one dream run per night (02:00-04:00 local), in a worker thread.
+    New proposals are reported to the owner through the standard notify channel."""
+    if _DREAM_BUSY[0] or os.environ.get("JAVIS_DREAM_PAUSED") == "1":
+        return
+    _DREAM_BUSY[0] = True
+    try:
+        for _mb in loop_feature.scheduler_brains():
+            try:
+                result = await asyncio.to_thread(_dreamer().run, _mb)
+            except Exception as _e:  # noqa: BLE001
+                print(f"[dream tick] {type(_e).__name__}: {_e}", file=sys.stderr)
+                continue
+            if result.get("state") == "done" and int(result.get("proposals_created") or 0) > 0:
+                n = int(result["proposals_created"])
+                try:
+                    await _notify_owner(
+                        "", f"🌙 Giấc mơ đêm qua rút ra {n} đề xuất ghi nhớ mới, đang chờ anh duyệt trên trang Tự học.",
+                        kind="system", label="Giấc mơ IDC Harness", source="dream",
+                        dedup=f"dream-proposals:{time.strftime('%Y-%m-%d')}",
+                        ngan=f"🌙 Có {n} đề xuất mới từ giấc mơ đêm qua chờ duyệt.")
+                except Exception as _ne:  # noqa: BLE001
+                    print(f"[dream notify] {type(_ne).__name__}: {_ne}", file=sys.stderr)
+    finally:
+        _DREAM_BUSY[0] = False
+
+
 def _improvement_activations():
     return improvement_activation.Activations(_improvement_write_store(), agent_key=_improvement_activation_agent)
 
@@ -28453,6 +28525,7 @@ improvement_activation_api.register(app, improvement_activation_api.ActivationAp
     imports=lambda: __import__("improvement_library").Imports(_improvement_write_store()),
     loop_runs=_improvement_loop_runs,
     auto_learning=_auto_learner,
+    dream=_dreamer,
     export=lambda principal, ids: __import__("improvement_library").export_procedures(
         _improvement_write_store(), principal, ids, version=_read_version()),
     review_proposals=_agent_review_proposals,

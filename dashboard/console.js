@@ -2338,6 +2338,7 @@
       </div>
 
       <div class="si-log"><h3 style="font-size:15px;color:var(--text)">${esc(window.t("improve.auto_title"))}${infoBtn()}</h3>${infoBody(esc(window.t("cs.ln_chat_note")))}<div id="lnChat">${esc(window.t("common.loading"))}</div></div>
+      <div class="si-log"><h3 style="font-size:15px;color:var(--text)">🌙 Giấc mơ đêm qua - đề xuất ghi nhớ chờ duyệt</h3><div class="dim" style="color:var(--text3);font-size:13px;margin-bottom:8px">Mỗi đêm lúc 02:00, hệ thống đọc lại nhật ký phiên rồi rút ra đề xuất ghi nhớ (chỉ vào kho đề xuất riêng, không ghi thẳng vào brain). Anh duyệt từng đề xuất ở đây thì nội dung mới vào wiki/memory.</div><div id="lnDream">${esc(window.t("common.loading"))}</div><div class="si-actions" style="margin-top:8px"><button class="s-btn-ghost" id="lnDreamRun">▶ Chạy giấc mơ ngay</button></div></div>
       <div class="si-log"><h3 style="font-size:15px;color:var(--text)">${esc(window.t("cs.ln_review_head"))}</h3><div id="lnReview">${esc(window.t("common.loading"))}</div></div>
       <div class="si-log"><h3 style="font-size:15px;color:var(--text)">${esc(window.t("cs.ln_log_head"))}</h3><div id="lnLog">${esc(window.t("common.loading"))}</div></div>
     </div>`;
@@ -2439,6 +2440,33 @@
       box.querySelectorAll("[data-al-apply]").forEach(b => b.onclick = () => post(b.dataset.alApply, "apply"));
       box.querySelectorAll("[data-al-undo]").forEach(b => b.onclick = () => post(b.dataset.alUndo, "undo"));
     }
+    // Dream job (1.4.0): proposals from the nightly consolidation, reviewed here.
+    async function loadDream() {
+      const box = el.querySelector("#lnDream");
+      let d = {}; try { d = await (await fetch(`/dream/proposals?brain=${encodeURIComponent(fbrain())}`)).json(); } catch (e) { }
+      if (!d.ok) { box.innerHTML = ""; return; }
+      const st = d.stats || {};
+      const head = `<div class="dim" style="color:var(--text3)">Đang chờ duyệt: <b>${st.pending || 0}</b> · Đã áp dụng: <b>${st.applied || 0}</b></div>`;
+      const rows = (d.proposals || []).filter(p => p.status === "pending");
+      if (!rows.length) { box.innerHTML = head + `<div class="dim" style="color:var(--text3)">Chưa có đề xuất nào chờ duyệt.</div>`; return; }
+      box.innerHTML = head + rows.slice(0, 10).map(p => {
+        const ev = (p.evidence || []).slice(0, 2).map(q => `<div class="dim" style="color:var(--text3);font-size:12.5px">“${esc(q)}”</div>`).join("");
+        return `<div class="le"><b>${esc(p.title)}</b> · <code style="font-size:11px">${esc(p.target_path)}</code> · ${esc(p.kind)}${p.verified ? " · ✓ đã kiểm chứng" : ""}<br><div style="font-size:13.5px;white-space:pre-wrap">${esc(p.body)}</div>${ev}<div style="margin-top:6px"><button class="s-btn-ghost" data-dream-apply="${esc(p.id)}">Áp dụng</button> <button class="s-btn-ghost" data-dream-reject="${esc(p.id)}">Từ chối</button></div></div>`;
+      }).join("");
+      const post = async (id, verb) => {
+        await fetch(`/dream/${encodeURIComponent(id)}/${verb}?brain=${encodeURIComponent(fbrain())}`, {method: "POST",
+          headers: {"Content-Type": "application/json"}, body: JSON.stringify({event_key: `ln-dream-${verb}-${id}`})});
+        loadDream();
+      };
+      box.querySelectorAll("[data-dream-apply]").forEach(b => b.onclick = () => post(b.dataset.dreamApply, "apply"));
+      box.querySelectorAll("[data-dream-reject]").forEach(b => b.onclick = () => post(b.dataset.dreamReject, "reject"));
+    }
+    el.querySelector("#lnDreamRun").onclick = async () => {
+      const b = el.querySelector("#lnDreamRun"); b.disabled = true; b.textContent = "Đang mơ…";
+      await fetch(`/dream/run-now?brain=${encodeURIComponent(fbrain())}`, {method: "POST",
+        headers: {"Content-Type": "application/json"}, body: JSON.stringify({event_key: "ln-dream-run-now"})});
+      setTimeout(() => { b.disabled = false; b.textContent = "▶ Chạy giấc mơ ngay"; loadDream(); }, 2500);
+    };
     async function loadMetrics() {
       let m = {}; try { m = await (await fetch(`/learn/metrics?brain=${encodeURIComponent(fbrain())}`)).json(); } catch (e) { }
       el.querySelector("#lnMetrics").innerHTML =
@@ -2522,7 +2550,7 @@
       el.querySelector("#bkStatus").innerHTML = `${esc(window.t("cs.bk_last"))} ${esc(when)}${s.last_status ? " · " + esc(s.last_status) : ""}${brainsNote}${gitNote}`;
     }
 
-    function loadAll() { loadMetrics(); loadChat(); loadReview(); loadLog(); loadBackup(); }
+    function loadAll() { loadMetrics(); loadChat(); loadDream(); loadReview(); loadLog(); loadBackup(); }
     loadAll();
   }
 

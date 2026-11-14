@@ -42,6 +42,7 @@ class ActivationApiDeps:
     export: Callable = None  # (principal, procedure_ids) -> package (M8)
     loop_runs: Callable = None  # () -> improvement_loop_runs.LoopRuns (self-learning runs)
     auto_learning: Callable = None  # () -> auto_learning.AutoLearner (automatic learning from chat)
+    dream: Callable = None  # () -> dream.Dreamer (nightly consolidation proposals)
 
 
 def _fail(error):
@@ -522,6 +523,104 @@ def register(app, deps: ActivationApiDeps):
                 raise ValueError("invalid_run")
             service = await m7(deps.auto_learning, "auto_learning")
             return {"ok": True, **await asyncio.to_thread(service.undo, principal.brain_id, run_id)}
+        except _ERRORS as error:
+            return _fail(error)
+
+    # Dream job (1.4.0): nightly consolidation proposals. The job never writes to
+    # the brain; a proposal lands only when the owner presses Apply here.
+    @app.get("/dream/proposals")
+    async def dream_proposals(brain: str = "brain", status: str | None = None):
+        try:
+            principal = await owner(brain)
+            service = await m7(deps.dream, "dream")
+            proposals = await asyncio.to_thread(service.list_proposals, principal.brain_id, status)
+            stats = await asyncio.to_thread(service.stats, principal.brain_id)
+            return {"ok": True, "proposals": proposals, "stats": stats}
+        except _ERRORS as error:
+            return _fail(error)
+
+    @app.get("/dream/runs")
+    async def dream_runs(brain: str = "brain"):
+        try:
+            principal = await owner(brain)
+            service = await m7(deps.dream, "dream")
+            return {"ok": True, "runs": await asyncio.to_thread(service.history, principal.brain_id)}
+        except _ERRORS as error:
+            return _fail(error)
+
+    @app.get("/dream/config")
+    async def dream_config_get(brain: str = "brain"):
+        try:
+            principal = await owner(brain)
+            service = await m7(deps.dream, "dream")
+            return {"ok": True, "config": await asyncio.to_thread(service.config)}
+        except _ERRORS as error:
+            return _fail(error)
+
+    @app.post("/dream/config")
+    async def dream_config_set(request: Request, brain: str = "brain"):
+        try:
+            if (denied := deps.owner_session(request)) is not None:
+                return denied
+            principal = await owner(brain)
+            body = await _body(request, {"event_key"})
+            service = await m7(deps.dream, "dream")
+            cfg = {k: body.get(k) for k in ("enabled", "mode", "hour") if k in body}
+            return {"ok": True, "config": await asyncio.to_thread(service.set_config, cfg)}
+        except _ERRORS as error:
+            return _fail(error)
+
+    @app.post("/dream/run-now")
+    async def dream_run_now(request: Request, brain: str = "brain"):
+        try:
+            if (denied := deps.owner_session(request)) is not None:
+                return denied
+            principal = await owner(brain)
+            await _body(request, {"event_key"})
+            service = await m7(deps.dream, "dream")
+            return {"ok": True, **await asyncio.to_thread(service.run, principal.brain_id, True)}
+        except _ERRORS as error:
+            return _fail(error)
+
+    @app.post("/dream/{proposal_id}/apply")
+    async def dream_apply(proposal_id: str, request: Request, brain: str = "brain"):
+        try:
+            if (denied := deps.owner_session(request)) is not None:
+                return denied
+            principal = await owner(brain)
+            await _body(request, {"event_key"})
+            if not re.fullmatch(r"drm_[0-9a-f]{16}", proposal_id):
+                raise ValueError("invalid_proposal")
+            service = await m7(deps.dream, "dream")
+            return {"ok": True, **await asyncio.to_thread(service.apply_proposal, principal.brain_id, proposal_id)}
+        except _ERRORS as error:
+            return _fail(error)
+
+    @app.post("/dream/{proposal_id}/reject")
+    async def dream_reject(proposal_id: str, request: Request, brain: str = "brain"):
+        try:
+            if (denied := deps.owner_session(request)) is not None:
+                return denied
+            principal = await owner(brain)
+            await _body(request, {"event_key"})
+            if not re.fullmatch(r"drm_[0-9a-f]{16}", proposal_id):
+                raise ValueError("invalid_proposal")
+            service = await m7(deps.dream, "dream")
+            return {"ok": True, **await asyncio.to_thread(service.reject_proposal, principal.brain_id, proposal_id)}
+        except _ERRORS as error:
+            return _fail(error)
+
+    @app.post("/dream/{proposal_id}/undo")
+    async def dream_undo(proposal_id: str, request: Request, brain: str = "brain"):
+        try:
+            if (denied := deps.owner_session(request)) is not None:
+                return denied
+            principal = await owner(brain)
+            await _body(request, {"event_key"})
+            if not re.fullmatch(r"drm_[0-9a-f]{16}", proposal_id):
+                raise ValueError("invalid_proposal")
+            service = await m7(deps.dream, "dream")
+            return {"ok": True, **await asyncio.to_thread(service.undo_apply, principal.brain_id, proposal_id)}
         except _ERRORS as error:
             return _fail(error)
 
