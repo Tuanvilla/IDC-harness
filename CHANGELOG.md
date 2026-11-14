@@ -1,5 +1,16 @@
 # Nhật ký thay đổi — IDC Harness
 
+## 1.4.2 — 2026-11-14
+
+### Giấc mơ: tự thử lại khi model nền trả lời chậm
+
+- Giấc mơ đêm qua đã đọc được 5 phiên nhưng chết ở bước phân tích vì model nền (Gemini qua API miễn phí) trả lời quá chậm, quá 120 giây mà chưa gửi chữ nào về nên đường truyền tự ngắt. Từ bản này, giấc mơ sẽ tự thử lại một lần sau 20 giây khi gọi model gặp sự cố (kể cả bước phân tích lẫn bước kiểm chứng), thay vì bỏ cả lần chạy ngay từ lỗi đầu tiên.
+- Bản tóm tắt phiên đưa cho model cũng gọn lại một chút (từ 24.000 xuống 16.000 ký tự) để model nền trả lời nhanh hơn.
+
+### Bạn cần làm sau khi cập nhật
+
+- Mở trang Tự học, bấm "Chạy giấc mơ ngay" một lần nữa. Nếu lần chạy vẫn lỗi thì gửi lại cho em câu lỗi mới hiện trên panel - nếu nó vẫn là lỗi hết giờ thì mình sẽ đổi model nền sang một model trả lời nhanh hơn (ví dụ gemini-2.5-flash hoặc Groq).
+
 ## 1.4.1 — 2026-11-14
 
 ### Sửa lỗi giấc mơ: lần chạy hỏng giờ nói rõ lý do
