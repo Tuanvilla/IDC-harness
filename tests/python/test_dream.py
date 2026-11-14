@@ -15,6 +15,8 @@ from pathlib import Path
 
 import dream  # noqa: E402
 
+dream.RETRY_PAUSE = 0  # test khong doi 20s moi lan thu lai
+
 _fails = []
 
 
@@ -233,6 +235,24 @@ result = dm.run("IDC", force=True)
 check("analyzer loi -> failed, error giu nguyen van 'final_error: 404', sessions_seen=1",
       result["state"] == "failed" and "final_error: 404" in result["error"] and result["sessions_seen"] == 1,
       result)
+
+# ---- 12. Analyzer timeout lan 1 -> thu lai lan 2 thanh cong (14/11/2026: Gemini ReadTimeout) ----
+tmp = tempfile.mkdtemp(prefix="idc-dream-12-")
+brain, state = _mk(tmp)
+host = _host(brain, state, SESSIONS, [RuntimeError("ReadTimeout"), ANALYZER_OK, VERIFIER_KEEP])
+dm = dream.Dreamer(dream.Store(state / "dream.sqlite3"), host, clock=lambda: CLOCK_0230)
+result = dm.run("IDC", force=True)
+check("analyzer timeout lan 1, thu lai thanh cong -> done, 1 de xuat",
+      result["state"] == "done" and result["proposals_created"] == 1, result)
+
+# ---- 13. Analyzer hong ca 2 lan -> failed, giu nguyen van loi cuoi ----
+tmp = tempfile.mkdtemp(prefix="idc-dream-13-")
+brain, state = _mk(tmp)
+host = _host(brain, state, SESSIONS, [RuntimeError("ReadTimeout")])
+dm = dream.Dreamer(dream.Store(state / "dream.sqlite3"), host, clock=lambda: CLOCK_0230)
+result = dm.run("IDC", force=True)
+check("analyzer hong ca 2 lan -> failed, error giu 'ReadTimeout'",
+      result["state"] == "failed" and "ReadTimeout" in result["error"], result)
 
 # ---- 11. Khong co phien moi -> khong chay vo ich ----
 tmp = tempfile.mkdtemp(prefix="idc-dream-9-")

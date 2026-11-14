@@ -52,8 +52,10 @@ DREAM_HOUR = 2               # nightly window starts at 02:00 local
 MAX_SESSIONS = 5             # sessions read per run (learn.py digest uses 3; dream reads a little more)
 MAX_MSGS = 12                # last messages per session
 MSG_LIMIT = 3000             # chars per message in the digest
-DIGEST_LIMIT = 24000         # chars of digest per run (same cap as learn.py)
+DIGEST_LIMIT = 16000         # chars of digest per run (learn.py uses 24000; dream
+                             # trims to 16000 so the free-tier API answers faster)
 MAX_PROPOSALS = 10           # proposals stored per run
+RETRY_PAUSE = 20             # seconds between the two text_call attempts
 ALLOWED_PREFIXES = ("memory/", "wiki/")
 MODES = ("suggest", "dry-run")
 CONFIG_NAME = "dream_config.json"
@@ -337,9 +339,30 @@ class Dreamer:
 
     # passes
 
+    def _call_with_retry(self, fn, what: str):
+        """Call a model text_call once, retrying once after a 20s pause on
+        failure. The free-tier Gemini API sometimes stalls a request past
+        httpx's 120s read timeout (ReadTimeout, 14/11/2026: the analyzer
+        died on the first attempt); a retry 20s later often gets through
+        once the provider queue drains. Two attempts fit the host's 300s
+        text_call cap (120s + 20s + 120s)."""
+        last = None
+        for attempt in (1, 2):
+            try:
+                return fn()
+            except Exception as error:
+                last = error
+                print(f"[dream] {what} lan {attempt} loi: "
+                      f"{type(error).__name__}: {str(error)[:120]}", flush=True)
+                if attempt == 1:
+                    time.sleep(RETRY_PAUSE)
+        raise last
+
     def _analyze(self, digest: str) -> list:
         try:
-            data = parse_json(self.host.text_call(ANALYZER_SYSTEM, analyzer_prompt(digest)))
+            data = parse_json(self._call_with_retry(
+                lambda: self.host.text_call(ANALYZER_SYSTEM, analyzer_prompt(digest)),
+                "analyzer"))
         except Exception as error:
             # Giu NGUYEN VAN loi cua engine (vd. "final_error: 404 model khong ton tai"):
             # chi ghi ten lop (EngineOutcomeError) thi chu khong the biet no hong o dau,
@@ -380,7 +403,9 @@ class Dreamer:
         if not kept:
             return [], True
         try:
-            data = parse_json(self.host.text_call(VERIFIER_SYSTEM, verifier_prompt(digest, kept)))
+            data = parse_json(self._call_with_retry(
+                lambda: self.host.text_call(VERIFIER_SYSTEM, verifier_prompt(digest, kept)),
+                "verifier"))
         except Exception as error:
             print(f"[dream] verifier goi model hong ({type(error).__name__}), "
                   f"giu {len(kept)} de xuat qua cua code, danh dau chua kiem chung", flush=True)
