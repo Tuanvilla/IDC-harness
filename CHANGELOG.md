@@ -1,5 +1,12 @@
 # Nhật ký thay đổi — IDC Harness
 
+## 1.4.3 — 2026-11-14
+
+### Sửa lỗi nút Cập nhật bị kẹt sau khi lên bản mới
+
+- Lần cập nhật lên 1.4.1 xong việc, máy đã chạy 1.4.1 bình thường, nhưng nút Cập nhật vẫn báo "đang cập nhật" và chặn bấm tiếp tới 15 phút, vì trạng thái cập nhật còn sót ở bước kiểm tra sức khoẻ. Từ bản này, nếu quá trình cập nhật gặp lỗi bất ngờ ở bất kỳ bước nào thì nó ghi rõ lỗi và nhả nút ngay, thay vì để lại trạng thái dở dang.
+- Thêm một lớp tự lành: khi server khởi động lên đúng bản mới thì lần cập nhật đó được ghi nhận là xong, nên dù trạng thái cũ còn sót thì nút Cập nhật cũng mở lại ngay sau khi khởi động.
+
 ## 1.4.2 — 2026-11-14
 
 ### Giấc mơ: tự thử lại khi model nền trả lời chậm
