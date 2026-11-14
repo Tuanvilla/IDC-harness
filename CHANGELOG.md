@@ -1,5 +1,18 @@
 # Nhật ký thay đổi — IDC Harness
 
+## 1.4.1 — 2026-11-14
+
+### Sửa lỗi giấc mơ: lần chạy hỏng giờ nói rõ lý do
+
+- Giấc mơ đêm qua đôi khi đọc phiên xong mà không ra đề xuất nào, lại không nói rõ vì sao. Từ bản này, khi một lần chạy giấc mơ gặp lỗi, hệ ghi lại đúng câu lỗi của model (ví dụ model báo không tồn tại hay hết lượt) thay vì chỉ ghi tên lỗi chung chung, và ghi luôn số phiên nó đã thấy - anh mở lịch sử chạy là biết ngay nó dừng ở bước nào.
+- Sửa lỗi giấc mơ có thể bỏ sót phiên chat: trước đây nó lọc phiên theo đúng một cách viết tên brain, trong khi chat trên dashboard và chat Telegram lưu tên brain theo hai kiểu khác nhau. Giờ nó nhận cả hai kiểu nên không còn phiên nào bị bỏ qua.
+- Mục giấc mơ trên trang Tự học giờ hiện luôn trạng thái lần chạy gần nhất (lúc nào, xong hay lỗi, thấy bao nhiêu phiên, ra bao nhiêu đề xuất) để anh khỏi phải đoán.
+- Nếu vòng kiểm chứng bằng model gặp sự cố, các đề xuất đã qua kiểm chứng bằng trích dẫn gốc vẫn được giữ lại (đánh dấu "chưa kiểm chứng") thay vì bị bỏ hết trong im lặng.
+
+### Bạn cần làm sau khi cập nhật
+
+- Mở trang Tự học, bấm "Chạy giấc mơ ngay" một lần nữa. Nếu vẫn lỗi, mục giấc mơ giờ sẽ hiện đúng câu lỗi để anh gửi lại cho em chẩn đoán tiếp.
+
 ## 1.4.0 — 2026-11-14
 
 ### Giấc mơ đêm qua: hệ tự rút bài học từ nhật ký phiên
