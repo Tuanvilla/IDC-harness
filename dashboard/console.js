@@ -2446,7 +2446,10 @@
       let d = {}; try { d = await (await fetch(`/dream/proposals?brain=${encodeURIComponent(fbrain())}`)).json(); } catch (e) { }
       if (!d.ok) { box.innerHTML = ""; return; }
       const st = d.stats || {};
-      const head = `<div class="dim" style="color:var(--text3)">Đang chờ duyệt: <b>${st.pending || 0}</b> · Đã áp dụng: <b>${st.applied || 0}</b></div>`;
+      let r = {}; try { r = await (await fetch(`/dream/runs?brain=${encodeURIComponent(fbrain())}`)).json(); } catch (e) { }
+      const last = (r.runs || [])[0];
+      const runLine = last ? `<div class="dim" style="color:var(--text3)">Lần chạy gần nhất: ${esc(new Date(last.started_at * 1000).toLocaleString())} · ${esc(last.state)} · ${last.sessions_seen || 0} phiên · ${last.proposals_created || 0} đề xuất${last.error ? ` · <span style="color:var(--red)">${esc(last.error)}</span>` : ""}</div>` : "";
+      const head = runLine + `<div class="dim" style="color:var(--text3)">Đang chờ duyệt: <b>${st.pending || 0}</b> · Đã áp dụng: <b>${st.applied || 0}</b></div>`;
       const rows = (d.proposals || []).filter(p => p.status === "pending");
       if (!rows.length) { box.innerHTML = head + `<div class="dim" style="color:var(--text3)">Chưa có đề xuất nào chờ duyệt.</div>`; return; }
       box.innerHTML = head + rows.slice(0, 10).map(p => {

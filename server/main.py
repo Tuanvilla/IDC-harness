@@ -28437,11 +28437,17 @@ def _dreamer():
 
 
 def _dream_sessions(brain):
-    """Recent sessions of one brain for the dream digest: all channels, newest first."""
+    """Recent sessions of one brain for the dream digest: all channels, newest first.
+
+    MUST filter with _brain_keys, not the single spelling: the sessions table
+    stores the brain verbatim as each channel wrote it (dashboard writes the
+    short name "brain", Telegram /brain writes the absolute path), so a single
+    string never matches both sides and the dream would see no sessions at all.
+    """
     import dream as _dream_mod
     store = get_store()
     out = []
-    for s in store.list_sessions(limit=_dream_mod.MAX_SESSIONS, brain=brain, channel="*"):
+    for s in store.list_sessions(limit=_dream_mod.MAX_SESSIONS, brain=_brain_keys(brain), channel="*"):
         sid = s.get("id")
         if not sid:
             continue

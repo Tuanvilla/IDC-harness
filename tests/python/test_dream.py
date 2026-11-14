@@ -40,7 +40,10 @@ def _host(brain, state, sessions, script):
     def text_call(system, prompt):
         idx = calls["i"]
         calls["i"] += 1
-        return script[min(idx, len(script) - 1)]
+        entry = script[min(idx, len(script) - 1)]
+        if isinstance(entry, Exception):
+            raise entry
+        return entry
 
     return dream.Host(
         text_call=text_call,
@@ -202,7 +205,36 @@ check("lan 2 cung dem (khong force) -> skipped not_due",
       first["state"] == "done" and second["state"] == "skipped"
       and second.get("reason") == "not_due", second)
 
-# ---- 9. Khong co phien moi -> khong chay vo ich ----
+# ---- 9. Verifier hong -> van giu de xuat qua cua code, danh dau chua kiem chung ----
+tmp = tempfile.mkdtemp(prefix="idc-dream-9a-")
+brain, state = _mk(tmp)
+host = _host(brain, state, SESSIONS, [ANALYZER_OK, RuntimeError("model loi")])
+dm = dream.Dreamer(dream.Store(state / "dream.sqlite3"), host, clock=lambda: CLOCK_0230)
+result = dm.run("IDC", force=True)
+props = dm.list_proposals("IDC")
+check("verifier goi model hong -> van 1 de xuat, verified=0",
+      result["state"] == "done" and len(props) == 1 and props[0]["verified"] == 0, result)
+
+tmp = tempfile.mkdtemp(prefix="idc-dream-9b-")
+brain, state = _mk(tmp)
+host = _host(brain, state, SESSIONS, [ANALYZER_OK, json.dumps({"keep": "all"}, ensure_ascii=False)])
+dm = dream.Dreamer(dream.Store(state / "dream.sqlite3"), host, clock=lambda: CLOCK_0230)
+result = dm.run("IDC", force=True)
+props = dm.list_proposals("IDC")
+check("verifier tra keep khong dung duoc -> van 1 de xuat, verified=0",
+      result["state"] == "done" and len(props) == 1 and props[0]["verified"] == 0, result)
+
+# ---- 10. Loi analyzer giu nguyen van + so phien da thay (14/11/2026: 7 lan chay failed chi de lai ten lop) ----
+tmp = tempfile.mkdtemp(prefix="idc-dream-10-")
+brain, state = _mk(tmp)
+host = _host(brain, state, SESSIONS, [RuntimeError("final_error: 404 model khong ton tai")])
+dm = dream.Dreamer(dream.Store(state / "dream.sqlite3"), host, clock=lambda: CLOCK_0230)
+result = dm.run("IDC", force=True)
+check("analyzer loi -> failed, error giu nguyen van 'final_error: 404', sessions_seen=1",
+      result["state"] == "failed" and "final_error: 404" in result["error"] and result["sessions_seen"] == 1,
+      result)
+
+# ---- 11. Khong co phien moi -> khong chay vo ich ----
 tmp = tempfile.mkdtemp(prefix="idc-dream-9-")
 brain, state = _mk(tmp)
 host = _host(brain, state, [], [ANALYZER_OK, VERIFIER_KEEP])

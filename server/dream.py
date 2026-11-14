@@ -341,7 +341,10 @@ class Dreamer:
         try:
             data = parse_json(self.host.text_call(ANALYZER_SYSTEM, analyzer_prompt(digest)))
         except Exception as error:
-            raise DreamError(f"analyzer_failed: {type(error).__name__}") from error
+            # Giu NGUYEN VAN loi cua engine (vd. "final_error: 404 model khong ton tai"):
+            # chi ghi ten lop (EngineOutcomeError) thi chu khong the biet no hong o dau,
+            # dung nhu 7 lan chay failed ngay 14/11/2026 chi de lai cai ten chung chung.
+            raise DreamError(f"analyzer_failed: {type(error).__name__}: {str(error)[:200]}") from error
         items = data.get("proposals") if isinstance(data, dict) else None
         if not isinstance(items, list):
             raise DreamError("analyzer_no_proposals")
@@ -360,29 +363,42 @@ class Dreamer:
                         "evidence": evidence})
         return out
 
-    def _verify(self, digest: str, candidates: list) -> list:
+    def _verify(self, digest: str, candidates: list) -> tuple:
         """Two gates: (1) in code, every candidate needs at least one evidence
         quote that literally appears in the digest; (2) a model call judges
-        whether the digest really supports each surviving candidate."""
+        whether the digest really supports each surviving candidate.
+
+        Returns (kept, model_checked). If the model verifier fails or returns
+        an unusable answer, the code-gate survivors are kept anyway but marked
+        unverified (verified=0): a broken verifier must not silently eat the
+        whole night's work, and the owner can see the missing tick in review."""
         flat = _norm_ws(digest)
         kept = []
         for c in candidates:
             if any(_norm_ws(q) and _norm_ws(q) in flat for q in c["evidence"]):
                 kept.append(c)
         if not kept:
-            return []
+            return [], True
         try:
             data = parse_json(self.host.text_call(VERIFIER_SYSTEM, verifier_prompt(digest, kept)))
         except Exception as error:
-            raise DreamError(f"verifier_failed: {type(error).__name__}") from error
+            print(f"[dream] verifier goi model hong ({type(error).__name__}), "
+                  f"giu {len(kept)} de xuat qua cua code, danh dau chua kiem chung", flush=True)
+            return kept, False
         keep_idx = set()
-        if isinstance(data, dict):
-            for i in (data.get("keep") or []):
+        usable = False
+        if isinstance(data, dict) and isinstance(data.get("keep"), list):
+            for i in data.get("keep"):
                 try:
                     keep_idx.add(int(i) - 1)
+                    usable = True
                 except Exception:
                     pass
-        return [c for i, c in enumerate(kept) if i in keep_idx]
+        if not usable:
+            print("[dream] verifier tra ve danh sach keep khong dung duoc, "
+                  f"giu {len(kept)} de xuat qua cua code, danh dau chua kiem chung", flush=True)
+            return kept, False
+        return [c for i, c in enumerate(kept) if i in keep_idx], True
 
     def _organize(self, brain: str, candidates: list, run_id: str) -> list:
         """Group by target file, drop duplicates inside this run and duplicates
@@ -424,15 +440,18 @@ class Dreamer:
             self.store.write(lambda c: c.execute(
                 "UPDATE runs SET finished_at=?, state=?, sessions_seen=?, proposals_created=?, error=? WHERE id=?",
                 (self.clock(), state_name, sessions_seen, proposals_created, error[:300], run_id)))
+            print(f"[dream] run {run_id} brain={brain} state={state_name} "
+                  f"sessions={sessions_seen} proposals={proposals_created} error={error[:200]}", flush=True)
             return {"run_id": run_id, "state": state_name, "sessions_seen": sessions_seen,
                     "proposals_created": proposals_created, "error": error}
 
+        sessions_seen = 0
         try:
             digest, seen_ts, sessions_seen = self._collect(brain, since_ts)
             if not digest.strip():
                 return finish("no_new_sessions", sessions_seen)
             candidates = self._analyze(digest)
-            verified = self._verify(digest, candidates)
+            verified, model_checked = self._verify(digest, candidates)
             final = self._organize(brain, verified, run_id)
             created = 0
             if cfg.get("mode") == "dry-run":
@@ -445,7 +464,8 @@ class Dreamer:
                     "status, created_at, reviewed_at, base_sha, applied_sha, run_id, backup) "
                     "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     ("drm_" + secrets.token_hex(8), brain, c["kind"], c["target"], c["title"], c["body"],
-                     json.dumps(c["evidence"], ensure_ascii=False), 1, "pending", now, None, base_sha, "", run_id, "")))
+                     json.dumps(c["evidence"], ensure_ascii=False), 1 if model_checked else 0,
+                     "pending", now, None, base_sha, "", run_id, "")))
                 created += 1
             brain_state["last_run_date"] = time.strftime("%Y-%m-%d", time.localtime(now))
             brain_state["last_seen_ts"] = seen_ts
@@ -453,9 +473,9 @@ class Dreamer:
             self._save_state(state)
             return finish("done", sessions_seen, created)
         except DreamError as error:
-            return finish("failed", error=str(error))
+            return finish("failed", sessions_seen, error=str(error))
         except Exception as error:  # noqa: BLE001 - a run never stays "running"
-            return finish("failed", error=f"{type(error).__name__}: {error}")
+            return finish("failed", sessions_seen, error=f"{type(error).__name__}: {error}")
 
     # owner view: list / apply / reject / undo
 
