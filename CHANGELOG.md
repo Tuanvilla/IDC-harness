@@ -1,5 +1,17 @@
 # Nhật ký thay đổi — IDC Harness
 
+## 1.4.0 — 2026-11-14
+
+### Giấc mơ đêm qua: hệ tự rút bài học từ nhật ký phiên
+- Mỗi đêm lúc 02:00, hệ đọc lại nhật ký trò chuyện trong ngày rồi rút ra các đề xuất ghi nhớ (sự kiện đã kiểm chứng, bài học từ sự cố, thông tin cũ cần sửa) - theo đúng mô hình "dreaming" mà Anthropic công bố cho agent của họ.
+- Đề xuất chỉ nằm trong kho chờ duyệt riêng; KHÔNG có đường nào tự ghi thẳng vào kho tri thức. Anh xem từng đề xuất trên trang Tự học (kèm trích dẫn gốc làm bằng chứng) rồi bấm Áp dụng thì nội dung mới vào wiki/memory - đúng một lần, có kiểm tra file đích còn nguyên như lúc đề xuất được viết hay không.
+- Chế độ của giấc mơ chỉ có "Đề xuất" và "Chạy thử", không có "Tự động": kể cả ai đó vô tình đặt cấu hình thành tự động, hệ cũng tự hạ xuống Đề xuất.
+- Đề xuất không bao giờ nhắm vào thư mục nguồn (sources/) - tài liệu gốc là dữ kiện chuẩn, giấc mơ không được viết lại.
+
+### Bạn cần làm sau khi cập nhật
+- Mở trang Tự học, xem mục "Giấc mơ đêm qua" và bấm "Chạy giấc mơ ngay" một lần để thử ngay trong ngày (không cần chờ tới 02:00 đêm).
+- Kiểm tra luôn chế độ "Tự học" trên cùng trang: nếu đang ở "Tự động" thì hai hệ tự học cũ vẫn tự ghi vào brain mà không qua duyệt (đó là mặc định cũ của chúng). Nếu anh muốn mọi ghi nhớ đều phải qua tay mình thì chuyển sang "Đề xuất".
+
 ## 1.3.0 — 2026-11-11
 
 ### Cập nhật nhanh hơn hẳn
