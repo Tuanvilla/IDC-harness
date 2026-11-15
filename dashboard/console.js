@@ -27,6 +27,7 @@
   // dashboard/icons.manifest.json rồi chạy python tools/gen_icons.py.
   const VIEW_ICON = {
     home: "hexagon",
+    tongquan: "layers",   // Trang Tổng quan IDC (nhánh ui/tong-quan-idc): icon đã có trong icons.manifest.json (nhóm he-thong), khỏi chạy gen_icons.py.
     chat: "message-circle",
     settings: "settings",
     workspace: "bot",
@@ -74,6 +75,7 @@
   // Icon cho TẦNG 1 (nhãn nhóm) - chỉ dùng ở header nhóm rail. Khoá theo `id` nhóm trong
   // RAIL_GROUPS, không theo tên nhóm: tên là chữ hiện ra, đã nằm ở từ điển (nav.group.*).
   const GICON = {
+    van_hanh: ic("zap"),   // Nhóm Vận hành (Tổng quan + Trò chuyện) - icon đã có trong manifest.
     bo_nao: ic("brain"),
     nang_luc: ic("lightbulb"),
     viec: ic("clipboard-check"),
@@ -106,7 +108,7 @@
   // Nhãn rail lấy từ TỪ ĐIỂN (thư mục dashboard/i18n) chứ không viết cứng. `t()` suy biến về
   // tiếng Việt khi thiếu key, nên một bản dịch làm dở không bao giờ để lại key trần trên rail.
   const RAIL_ITEMS = [
-    "home", "chat", "settings", "workspace", "teams", "skills", "chatbots", "conversations", "files",
+    "tongquan", "home", "chat", "settings", "workspace", "teams", "skills", "chatbots", "conversations", "files",
     "terminal", "coding", "tasks", "webhooks", "learn", "models", "channels", "mcp", "plugins",
     "packs", "logs", "account", "usage", "logins", "pet", "share",
   ].map(id => ({ id, icon: ICON[id], get label() { return t(`page.${id}.label`); } }));
@@ -121,7 +123,10 @@
     // NHÌN vào chính bộ não (đồ thị là khoang não, trò chuyện là nói với bộ não đó), nên
     // đứng thành một tầng riêng ngang hàng với Bộ não là thừa một bậc. Hai mục dồn xuống
     // "Bộ não" và đứng đầu nhóm, vì đó là hai trang được mở nhiều nhất.
-    { id: "bo_nao", get label() { return t("nav.group.bo_nao"); },      icon: GICON.bo_nao,      ids: ["home", "chat", "files", "learn"] },
+    // Nhóm Vận hành (ui/tong-quan-idc): Tổng quan IDC là trang mặc định, Trò chuyện
+    // dồn xuống đây thành một mục - không còn là điểm vào đầu tiên nữa.
+    { id: "van_hanh", get label() { return t("nav.group.van_hanh"); },    icon: GICON.van_hanh,    ids: ["tongquan", "chat"] },
+    { id: "bo_nao", get label() { return t("nav.group.bo_nao"); },      icon: GICON.bo_nao,      ids: ["home", "files", "learn"] },
     // 0.61.0: Chatbot gộp vào trang Hội thoại (tab thứ ba); id "chatbots" giữ làm bí danh
     // (lệnh nói "mở chatbot", bookmark cũ) và được navigateTo đổi hướng sang tab đó.
     // 0.347.0: the "Code" group is gone (owner, 27/10/2026): every chat now works in a folder and
@@ -185,7 +190,7 @@
   //
   // `page.<id>.title` cho phép tiêu đề trang KHÁC nhãn trên rail khi cần (rail chật nên
   // "Việc", trang rộng nên "Việc (Kanban)"); thiếu key đó thì tự rơi về `page.<id>.label`.
-  const VIEW_META = Object.fromEntries(["home", "chat", "settings", "workspace", "teams", "skills", "files", "terminal", "coding", "tasks", "webhooks", "chatbots", "conversations", "learn", "models", "channels", "mcp", "plugins", "packs", "logs", "account", "usage", "pet", "share", "logins"].map(id => [id, {
+  const VIEW_META = Object.fromEntries(["tongquan", "home", "chat", "settings", "workspace", "teams", "skills", "files", "terminal", "coding", "tasks", "webhooks", "chatbots", "conversations", "learn", "models", "channels", "mcp", "plugins", "packs", "logs", "account", "usage", "pet", "share", "logins"].map(id => [id, {
     icon: VIEW_ICON[id],
     get label() {
       const rieng = t(`page.${id}.title`);
@@ -327,7 +332,9 @@
   const TRANG_GOP = { runtime: "usage", agents: "workspace", workflows: "workspace", kanban: "tasks", selfimprove: "tasks" };
   const TRANG_CUOI_KEY = "javis_last_page";
   function khoiPhucTrang() {
-    let id = "home";
+    // Trang đầu là Tổng quan IDC (ui/tong-quan-idc); các lần sau quay lại đúng khung
+    // đang dùng (chỉ nhớ hai khung hội thoại, như trước).
+    let id = "tongquan";
     try {
       const saved = localStorage.getItem(TRANG_CUOI_KEY);
       const resolved = TRANG_GOP[saved] || saved;
@@ -360,7 +367,7 @@
       store.active = id;
       if (tab) store.settingsTab = tab;
       // Chỉ nhớ hai khung hội thoại. Ghé Cài đặt, Cập nhật hay Đồ thị không làm mất
-      // nơi đang nói chuyện; chưa từng mở hội thoại thì lần đầu vẫn vào Đồ thị.
+      // nơi đang nói chuyện; chưa từng mở hội thoại thì lần đầu vẫn vào Tổng quan IDC.
       if (id === "chat" || id === "workspace") {
         try { localStorage.setItem(TRANG_CUOI_KEY, id); } catch (e) {}
       }
@@ -560,6 +567,13 @@
         try { if (window.JavisConversations && window.JavisConversations.chonTab) window.JavisConversations.chonTab(_tabHoiThoaiCho, true); } catch (e) {}
       }
       _tabHoiThoaiCho = "";
+    }
+    if (id === "tongquan") {
+      // Trang Tổng quan IDC do overview.js dựng, uỷ quyền y như trang Gói (packs.js).
+      // Để riêng file vì console.js đã ~9k dòng.
+      if (window.IDCOverview) return window.IDCOverview.render(el);
+      el.innerHTML = placeholder("tongquan", window.t("cs.mod_not_ready", { ten: "overview.js" }));
+      return;
     }
     if (id === "chat")     return renderChat(el);
     if (id === "workspace") return renderWorkspace(el);
@@ -8387,7 +8401,7 @@
     Alpine.store("nav", {
       active: "home",
       items: RAIL_ITEMS,
-      openGroup: groupLabelOf("home"),   // accordion 2 tầng: nhóm đang mở (mặc định nhóm chứa trang đầu)
+      openGroup: groupLabelOf("tongquan"),   // accordion 2 tầng: nhóm đang mở (mặc định nhóm chứa trang đầu = Tổng quan)
       collapsed: (() => { try { return localStorage.getItem("javis_rail_collapsed") === "1"; } catch (e) { return false; } })(),
       collapseIcon: COLLAPSE_ICON,
       // Alpine không biết từ điển i18n đổi (nó là object thuần), nên phải có một biến
@@ -9637,7 +9651,7 @@
     // Cột trái = Vault explorer (luôn có trong DOM ở màn home) → nạp cây ngay khi khởi động
     renderVaultTree();
     initRailTooltip();   // tooltip nhanh cho rail thu gọn
-    // Trang đầu của thiết bị là Trò chuyện; các lần sau quay lại đúng khung đang dùng.
+    // Trang đầu là Tổng quan IDC (ui/tong-quan-idc); các lần sau quay lại đúng khung đang dùng.
     // Khôi phục ngay, trước các lời gọi mạng ở freshSettings, để tránh nháy màn IDC Harness.
     khoiPhucTrang();
 

@@ -18,7 +18,7 @@ import unicodedata
 # Trang hợp lệ = RAIL_ITEMS trong dashboard/console.js và PAGES trong dashboard/ui-actions.js.
 # Thêm trang mới thì thêm ở cả ba chỗ.
 PAGES = (
-    "home", "chat", "settings", "workspace", "teams", "skills", "chatbots", "conversations", "files",
+    "tongquan", "home", "chat", "settings", "workspace", "teams", "skills", "chatbots", "conversations", "files",
     "terminal", "coding", "tasks", "webhooks", "learn", "models", "channels", "mcp", "plugins",
     "packs", "logs", "account", "usage", "logins", "pet", "share",
 )
@@ -38,6 +38,7 @@ ALIASES = {
     "muc dung": "usage", "token": "usage", "chi phi": "usage",
     "tro chuyen": "chat", "hoi thoai": "chat", "trang chu": "home", "javis": "home",
     "do thi": "home", "graph": "home", "khoang nao": "home", "do thi tri thuc": "home",
+    "tong quan": "tongquan", "tong quan idc": "tongquan",
     "linh vat": "pet", "mascot": "pet", "con pet": "pet", "pet": "pet", "thu cung": "pet",
     "chia se": "share", "share": "share", "link chia se": "share", "duong link": "share",
     "shared links": "share", "quan ly chia se": "share",
@@ -85,7 +86,7 @@ _EXACT_PAGE = {"nhom": "teams"}
 # Nhóm trên thanh bên = RAIL_GROUPS trong dashboard/console.js (khoá `id`) và GROUPS trong
 # dashboard/ui-actions.js. Mở NHÓM khác mở TRANG: người dùng hay muốn bung phần đang gập để
 # nhìn xem trong đó có gì, chứ chưa chọn trang nào.
-GROUPS = ("bo_nao", "nang_luc", "viec", "ket_noi", "he_thong")
+GROUPS = ("van_hanh", "bo_nao", "nang_luc", "viec", "ket_noi", "he_thong")
 
 GROUP_ALIASES = {
     # Nhóm "Trợ lý" đã bỏ ở 0.58.0 (gộp vào Bộ não); giữ bí danh cũ trỏ sang Bộ não để
@@ -99,6 +100,7 @@ GROUP_ALIASES = {
     "viec": "viec", "cong viec": "viec", "task": "viec",
     "ket noi": "ket_noi", "connect": "ket_noi", "ket noi va model": "ket_noi",
     "he thong": "he_thong", "system": "he_thong", "cai dat chung": "he_thong",
+    "van hanh": "van_hanh", "operations": "van_hanh",
 }
 
 # Tiền tố người nói hay kèm theo. Lột LẶP LẠI: "mở trang kỹ năng" có hai lớp, lột một lớp thì

@@ -155,8 +155,9 @@ check("ui_targets.py: bí danh 'tro ly' của NHÓM nay trỏ sang bo_nao", /"tr
 
 // ---- 7. Thanh bên gọn một tầng ----
 check("console.js: không còn nhóm tro_ly", !/id: "tro_ly"/.test(console_js));
-check("console.js: home và chat nằm trong nhóm Bộ não",
-  /ids: \["home", "chat", "files", "learn"\]/.test(console_js));
+check("console.js: home nằm trong nhóm Bộ não, chat nằm trong nhóm Vận hành",
+  /ids: \["home", "files", "learn"\]/.test(console_js)
+  && /ids: \["tongquan", "chat"\]/.test(console_js));
 check("i18n: không còn khoá nhóm tro_ly", vi["nav.group.tro_ly"] === undefined && en["nav.group.tro_ly"] === undefined);
 check("i18n: trang home đổi tên thành Đồ thị / Graph",
   vi["page.home.label"] === "Đồ thị" && en["page.home.label"] === "Graph");

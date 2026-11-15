@@ -25,7 +25,9 @@ function storage(seed = {}) {
   };
 }
 
-// First launch opens the graph. Only chat/workspace can become the next launch target.
+// First launch opens Tổng quan IDC (nhánh ui/tong-quan-idc, Cách 2: trang Tổng
+// quan là trang mặc định, Trò chuyện thành một mục trong nhóm Vận hành).
+// Only chat/workspace can become the next launch target.
 function navCase(seed, expected) {
   const localStorage = storage(seed);
   const route = { active: "home", openGroup: "" };
@@ -66,13 +68,13 @@ function navCase(seed, expected) {
   ctx.khoiPhucTrang();
   assert.equal(route.active, "workspace", "graph/settings must not replace last assistant");
 }
-navCase({}, "home");
+navCase({}, "tongquan");
 navCase({ javis_last_page: "chat" }, "chat");
 navCase({ javis_last_page: "workspace" }, "workspace");
 navCase({ javis_last_page: "agents" }, "workspace");
-navCase({ javis_last_page: "settings" }, "home");
-navCase({ javis_last_page: "home" }, "home");
-navCase({ javis_last_page: "not-a-page" }, "home");
+navCase({ javis_last_page: "settings" }, "tongquan");
+navCase({ javis_last_page: "home" }, "tongquan");
+navCase({ javis_last_page: "not-a-page" }, "tongquan");
 
 // An assistant's selected conversation can be older than the latest one. Reopening the
 // workspace must use its exact id, while keeping the main chat id for the return path.
